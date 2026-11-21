@@ -35,3 +35,9 @@ python -m unittest discover -s tests -v
 
 ## Source publication rule
 Schema-level rights approval is **not** a substitute for a comprehensive publication policy; before production, approve exact fields and data sets, moderation/review procedure, permitted reuse, evidence version integrity and cache/HTTP semantics. No public PDF redistribution without explicit licence analysis.
+
+## Read-only Cloudflare DNS inventory — 2026-11-21
+- Connected Cloudflare account includes an **active** zone for `dcmc.ca`.
+- An exact-name lookup found **zero existing DNS records** at `records.dcmc.ca` and **zero** at `api.records.dcmc.ca`.
+- No DNS records were created, updated or removed. No Worker route or D1 database was provisioned.
+- This snapshot must be rechecked immediately before any deployment; absent records are not themselves routing configuration. Do not pre-create CNAME records pointing to guessed Worker destinations.
