@@ -16,7 +16,7 @@ PORTAL_URL = "https://opendata.citywindsor.ca/Tools/CouncilAgendas"
 DAY = r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)"
 MONTH = r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
 MEETING_RE = re.compile(
-    rf"(?P<body>[^\n]{{4,180}}?)\s+-\s+(?P<day>{DAY}),?\s+"
+    rf"(?P<body>[^\n]{{4,500}}?)\s+-\s+(?P<day>{DAY}),?\s+"
     rf"(?P<date>{MONTH}\s+\d{{1,2}},?\s+20\d{{2}})\b",
     re.IGNORECASE,
 )
@@ -27,7 +27,7 @@ LABELS = {
     "consolidated striking committee agenda",
 }
 # The portal also publishes titled item-specific attachments and submissions.
-ITEM_MATERIAL_RE = re.compile(r"^(?:item\s+\d+(?:\\.\d+)?\s*[-–:]|written submission\b|appendix\s+[a-z0-9])", re.IGNORECASE)
+ITEM_MATERIAL_RE = re.compile(r"^(?:item\s+\d+(?:\.\d+)?\s*[-–:]|written submission\b|appendix\s+[a-z0-9])", re.IGNORECASE)
 PUBLIC_VIDEO_HOSTS = {"csg001-harmony.sliq.net"}
 MAX_HTML_BYTES = 4_000_000
 MAX_MEETINGS = 120
