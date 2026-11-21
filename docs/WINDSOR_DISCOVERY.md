@@ -44,3 +44,11 @@ An explicit `--apply --db` is required to insert into local SQLite. Rows are ide
 - Add explicit permission-controlled publication and independent human verification. No model-generated conclusions or automatic public publishing.
 - Add durable D1 repository adapter, scheduler, rate-limited retries and alerting with recorded job metrics before turning on any recurring workflow.
 - Keep all cached documents subject to the 90-day **review eligibility**, not automatic deletion.
+
+
+## Full portal coverage (2026-11-21 decision)
+Discovery must cover **every meeting entry listed on the official CouncilAgendas portal**, including City Council, standing committees, special sessions, inaugural/orientation sessions, committees sitting as other boards, and cancelled meetings. Do not filter to regular Council meetings. Preserve the full meeting body/title and distinguish cancelled status from any legislative decision.
+
+Index every public meeting material type that the portal exposes: agendas (original/consolidated/final), minutes, published in-camera *agenda links* (not confidential content), striking committee agenda links, publicly linked videos, and item-specific appendices and written submissions. External video metadata is allowed only from the explicitly reviewed host `csg001-harmony.sliq.net`; never follow links without separate source-policy checks. Metadata discovery is not license verification or publication approval.
+
+**Current limitation:** a meeting identity is based on municipality, published title (minus 'CANCELLED') and date. Duplicate same-name/same-day sessions and changes to the title require a future portal-native identifier or explicit collision review. This pilot does not infer approvals or votes, nor automatically disclose closed-session materials. Live HTML compatibility remains to be verified before scheduling.
