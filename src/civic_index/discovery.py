@@ -8,8 +8,9 @@ import argparse
 import json
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from .windsor import PORTAL_URL, MAX_HTML_BYTES, discover, to_jsonable, stable_id
 
@@ -54,7 +55,7 @@ def apply_to_local_db(db_path: str, meetings: list) -> dict[str, int]:
                 vid = stable_id("version", document.record_id, document.url)
                 db.execute(
                     "INSERT OR IGNORE INTO document_versions(id,document_id,source_url,source_host,verification_status,rights_review) VALUES (?,?,?,?,?,?)",
-                    (vid, document.record_id, document.url, "www.citywindsor.ca", "unverified", "pending"),
+                    (vid, document.record_id, document.url, urlsplit(document.url).hostname, "unverified", "pending"),
                 )
                 cur = db.execute(
                     "INSERT OR IGNORE INTO meeting_documents(meeting_id,version_id,label) VALUES (?,?,?)",
@@ -72,7 +73,7 @@ def apply_to_local_db(db_path: str, meetings: list) -> dict[str, int]:
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Read-only Windsor public agenda index discovery")
     ap.add_argument("--fixture", type=Path, help="Offline HTML fixture, no HTTP requests")
-    ap.add_argument("--since", default="2026-11-01", help="Inclusive YYYY-MM-DD earliest meeting")
+    ap.add_argument("--since", default=(datetime.now(timezone.utc).date() - timedelta(days=45)).isoformat(), help="Inclusive YYYY-MM-DD earliest meeting (default: past 45 days)")
     ap.add_argument("--apply", action="store_true", help="Explicit local-only database write")
     ap.add_argument("--db", help="Path to initialized local SQLite database (required for --apply)")
     args = ap.parse_args(argv)
