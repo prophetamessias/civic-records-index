@@ -14,3 +14,7 @@ Plan Cloudflare Workers + D1 for indexes; only build/deploy after verification. 
 
 ## 2026-11-21 — Branches and agent collaboration
 `main` stable and `dev` active integration. Feature branches/PR review recommended. One writing agent at a time; shared AGENTS.md and lightweight CLAUDE.md/GEMINI.md.
+
+
+## 2026-11-21 — Portal-wide meeting scope and domain
+Windsor discovery encompasses all meeting entries and published source links on the official Council Agendas portal, not just City Council. Must include committee and board sittings, special and inaugural/orientation meetings, cancelled events and item-level attachments/videos with provenance. Future service will use a subdomain of dcmc.ca; records.dcmc.ca is the current proposal, not configured. No live DNS change or deployment.
