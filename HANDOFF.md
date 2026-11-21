@@ -24,3 +24,6 @@ Official portal/link changes; source-licence ambiguity; large PDFs; model halluc
 
 ## 2026-11-21 — Schema feature branch progress
 Feature branch `feature/source-index-schema` branched from `dev`; added migrations/0001_core.sql, tests/test_schema.py, docs/DATABASE.md and GitHub Actions schema test workflow. Local SQLite baseline tests passed (seven checks). No D1 instance created, no API, no agent deployed. PR awaiting review; bootstrap draft PR #1 is still open/unmerged. Follow-up: run CI, review schema privacy, source version uniqueness, retention authorization and cross-entity references; implement Windsor read-only adapter after branch integration.
+
+## 2026-11-21 — Windsor discovery pilot
+Feature `feature/windsor-source-discovery` stacked atop schema branch. Added Python stdlib Windsor HTML index reader, URL allowlist, bounded read-only HTTP fetch, dry-run JSON CLI, explicit local-only idempotent SQLite writes, 0002 meeting_documents migration, synthetic fixtures/tests and operations guide. No schedule, cloud API or SharePoint access activated. Run CI and independently validate actual portal HTML prior to use; keep PR stacked until schema branch review. No paid AI and no deletion/public publishing.
