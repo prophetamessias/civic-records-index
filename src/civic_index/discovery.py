@@ -43,9 +43,13 @@ def apply_to_local_db(db_path: str, meetings: list) -> dict[str, int]:
         for meeting in meetings:
             cur = db.execute(
                 "INSERT OR IGNORE INTO meetings(id,municipality_id,body,meeting_date,status,official_url) VALUES (?,?,?,?,?,?)",
-                (meeting.meeting_id, "windsor", meeting.body, meeting.meeting_date, "unknown", PORTAL_URL),
+                (meeting.meeting_id, "windsor", meeting.body, meeting.meeting_date, meeting.status, PORTAL_URL),
             )
             counts["meetings_new"] += cur.rowcount
+            # Cancellation is public portal metadata; do not overwrite completed or
+            # verified outcomes when a meeting is rediscovered.
+            if meeting.status == "cancelled":
+                db.execute("UPDATE meetings SET status='cancelled' WHERE id=? AND status IN ('unknown','scheduled')", (meeting.meeting_id,))
             for document in meeting.documents:
                 cur = db.execute(
                     "INSERT OR IGNORE INTO documents(id,municipality_id,document_type,title) VALUES (?,?,?,?)",
