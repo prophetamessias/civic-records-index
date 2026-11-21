@@ -17,3 +17,8 @@ Public API is allowlisted fields/records with explicit verification and publicat
 
 ## MVP milestone
 Read-only Windsor discovery ingest with synthetic tests, database migrations, provenance API, daily scheduler, execution ledger and admin review dashboard. No paid AI usage by default.
+
+
+## Meeting coverage and project domain (2026-11-21)
+Windsor pilot indexes **every meeting shown on the official Council Agendas portal**, not merely regular Council sessions, and every public-facing linked material type. Recognize standing committees, special meetings, inaugural/orientation sessions, sessions sitting as boards, cancelled meetings, videos and item-level supporting documents. Treat cancelled meeting as an event with status, not as a decision.
+The user has selected a subdomain under **dcmc.ca** for Civic Records Index. Proposed hostname: `records.dcmc.ca` for future documentation/research interface; optional `api.records.dcmc.ca` for API, subject to later confirmation and DNS planning. No DNS, zone changes or deployment are authorized by this design record.
