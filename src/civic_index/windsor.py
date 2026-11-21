@@ -22,10 +22,13 @@ MEETING_RE = re.compile(
 )
 LABELS = {
     "agenda", "consolidated agenda", "final consolidated agenda",
-    "minutes", "in-camera agenda", "striking committee agenda",
+    "minutes", "video", "in-camera agenda", "striking committee agenda",
     "in-camera striking committee", "in-camera striking committee agenda",
     "consolidated striking committee agenda",
 }
+# The portal also publishes titled item-specific attachments and submissions.
+ITEM_MATERIAL_RE = re.compile(r"^(?:item\\s+\\d+(?:\\.\\d+)?\\s*[-–:]|written submission\\b|appendix\\s+[a-z0-9])", re.IGNORECASE)
+PUBLIC_VIDEO_HOSTS = {"csg001-harmony.sliq.net"}
 MAX_HTML_BYTES = 4_000_000
 MAX_MEETINGS = 120
 MAX_LINKS_PER_MEETING = 40
@@ -35,7 +38,7 @@ def official_url(url: str, base: str = PORTAL_URL) -> str | None:
     absolute = urljoin(base, url)
     p = urlsplit(absolute)
     host = (p.hostname or "").lower()
-    if p.scheme != "https" or not (host == "citywindsor.ca" or host.endswith(".citywindsor.ca")):
+    if p.scheme != "https" or not (host == "citywindsor.ca" or host.endswith(".citywindsor.ca") or host in PUBLIC_VIDEO_HOSTS):
         return None
     if p.username or p.password or p.port not in (None, 443):
         return None
@@ -58,6 +61,7 @@ class Meeting:
     meeting_id: str
     body: str
     meeting_date: str
+    status: str
     documents: tuple[DocumentLink, ...]
 
 
@@ -126,15 +130,20 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
                 current = None
                 return
             body = " ".join(match.group("body").split()).strip()
+            cancelled = bool(re.search(r"\\s+-\\s+cancelled\\s*$", body, re.IGNORECASE))
+            # Remove the cancellation tag from the stable identity, so status changes do not create a second meeting.
+            body = re.sub(r"\\s+-\\s+cancelled\\s*$", "", body, flags=re.IGNORECASE).strip()
             if len(body) < 4:
                 return
             key = stable_id("meeting", "windsor", body.lower(), when.isoformat())
             if key not in seen and len(found) < MAX_MEETINGS:
-                current = {"meeting_id": key, "body": body, "meeting_date": when.isoformat(), "documents": []}
+                current = {"meeting_id": key, "body": body, "meeting_date": when.isoformat(), "status": "cancelled" if cancelled else "unknown", "documents": []}
                 found.append(current)
                 seen.add(key)
             else:
                 current = next((m for m in found if m["meeting_id"] == key), None)
+                if current and cancelled:
+                    current["status"] = "cancelled"
     for kind, label, href in parser.events:
         if kind == "text":
             text_parts.append(label)
@@ -145,7 +154,7 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
             if current is None or len(current["documents"]) >= MAX_LINKS_PER_MEETING:
                 continue
             normalized = " ".join(label.lower().replace("–", "-").split())
-            if normalized not in LABELS:
+            if normalized not in LABELS and not ITEM_MATERIAL_RE.match(label.strip()):
                 continue
             url = official_url(href, base_url)
             if not url:
@@ -154,7 +163,7 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
             if not any(d.record_id == rid for d in current["documents"]):
                 current["documents"].append(DocumentLink(label=label, url=url, record_id=rid))
     process_text()
-    return [Meeting(meeting_id=m["meeting_id"], body=m["body"], meeting_date=m["meeting_date"], documents=tuple(m["documents"])) for m in found]
+    return [Meeting(meeting_id=m["meeting_id"], body=m["body"], meeting_date=m["meeting_date"], status=m["status"], documents=tuple(m["documents"])) for m in found]
 
 
 def to_jsonable(meetings: list[Meeting]) -> list[dict]:
