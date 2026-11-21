@@ -19,9 +19,9 @@ class WindsorDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0].meeting_date, "2026-11-25")
         self.assertEqual(records[1].meeting_date, "2026-11-23")
-        self.assertEqual(len(records[1].documents), 3)
+        self.assertEqual(len(records[1].documents), 4)
         self.assertEqual([x.label for x in records[1].documents],
-                         ["Agenda", "Consolidated Agenda", "In-Camera Agenda"])
+                         ["Agenda", "Consolidated Agenda", "In-Camera Agenda", "Video"])
 
     def test_reject_external_and_non_https(self):
         self.assertIsNone(official_url("https://evil.example/doc.pdf"))
@@ -46,10 +46,10 @@ class WindsorDiscoveryTests(unittest.TestCase):
             self.assertEqual(len(records), 2)
             first = apply_to_local_db(str(path), records)
             second = apply_to_local_db(str(path), records)
-            self.assertEqual(first, {"meetings_new": 2, "documents_new": 4, "links_new": 4})
+            self.assertEqual(first, {"meetings_new": 2, "documents_new": 5, "links_new": 5})
             self.assertEqual(second, {"meetings_new": 0, "documents_new": 0, "links_new": 0})
             with sqlite3.connect(path) as db:
-                self.assertEqual(db.execute("SELECT COUNT(*) FROM document_versions").fetchone()[0], 4)
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM document_versions").fetchone()[0], 5)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM job_runs").fetchone()[0], 2)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM publication_reviews").fetchone()[0], 0)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM deletion_reviews").fetchone()[0], 0)
