@@ -1,45 +1,44 @@
-# Engineering handoff — Civic Records Index
-Updated: 2026-11-21
+# Engineering Handoff — Civic Records Index
 
-## State
-New independent public MIT-licensed repository. `main` retains original README/LICENSE/.gitignore. `dev` created for project setup. Repository operating docs established on `dev`; no application code, D1 database, automated agent or Cloudflare deployment yet.
+**Checkpoint:** 2026-11-21 (/wrap)
+**Authoritative repository:** https://github.com/prophetamessias/civic-records-index
+**Shared operating contract:** AGENTS.md
 
-## Decisions
-See DECISIONS.md and AGENTS.md. Initial architecture: Cloudflare Workers + D1 metadata/index, temporary SharePoint cache later, source-specific municipality adapters, deterministic discovery/extraction before optional LLM analysis. Public data service feeds Council Office and VoterHub through distinct consumers and authorization boundaries. A human approves public publication and cached file deletion.
+## Where we left off
+Independent open-source civic records research service, first adapter Windsor. All meeting types on the Windsor Council Agendas portal, including special/committee/board and cancelled meetings, are in scope. Separate verified public-data feeds to Council Office and VoterHub, no private cross-project sharing.
 
-## Existing research
-Google Drive research folder: https://drive.google.com/drive/folders/1Z-DOVaUXD2n0sn2NBTA_HPQ717gi9h4v
-Historical decisions register: https://docs.google.com/document/d/1OJuRgLmmuHVfZAoF88858qS3x6tb95L9YW7WzKgUDOQ/edit
-Prior local proof-of-concept ZIP was generated in chat, NOT committed; inspect/licence-review before importing.
+## Git/PR state (remote verified)
+- main stable and unmodified since initial commit; dev contains bootstrap documents.
+- #1 dev→main: https://github.com/prophetamessias/civic-records-index/pull/1
+- #2 feature/source-index-schema→dev: https://github.com/prophetamessias/civic-records-index/pull/2
+- #3 feature/windsor-source-discovery→feature/source-index-schema: https://github.com/prophetamessias/civic-records-index/pull/3
+- #4 feature/api-readiness-dcmc→feature/windsor-source-discovery: https://github.com/prophetamessias/civic-records-index/pull/4
+- #5 feature/dev-preview-d1→feature/api-readiness-dcmc: https://github.com/prophetamessias/civic-records-index/pull/5
+All OPEN DRAFT and UNMERGED as of checkpoint; feature/dev-preview-d1 head before this documentation commit 597bea35c9de5d91410e58f0c9786d26f93c996e. Do not merge or reorder without independent review/rebase plan. Local working tree/uncommitted state not inspected (only remote GitHub access).
 
-## Next steps
-1. Review and merge bootstrap PR after verifying files/branch controls.
-2. Define schema/migrations for municipalities, meetings, agenda items, source documents/versions, relationships, decisions, recorded votes, jobs, verification and retention holds.
-3. Add synthetic fixtures and tests; import only traceable/public Windsor references.
-4. Implement read-only Windsor adapter with scheduler, rate limiting, idempotent ingest, monitored no-AI run.
-5. Add dashboard and agent workflow stages after ingestion tests.
+## Files materially added/modified
+migrations/0001_core.sql, migrations/0002_meeting_documents.sql, src/civic_index/windsor.py, src/civic_index/discovery.py, src/worker.mjs, tests/test_schema.py, tests/test_discovery.py, tests/test_full_portal_coverage.py, tests/test_worker.mjs, tests/test_preview.mjs, CI workflows, docs/ARCHITECTURE.md, docs/ROADMAP.md, docs/DATABASE.md, docs/WINDSOR_DISCOVERY.md, docs/HOSTING_AND_D1.md, docs/DEV_PREVIEW.md, AGENTS.md, CLAUDE.md, GEMINI.md, DECISIONS.md, CHANGELOG.md, HANDOFF.md.
 
-## Risks
-Official portal/link changes; source-licence ambiguity; large PDFs; model hallucination; operating costs; final meeting outcomes not yet established. No deletion or public publishing enabled.
+## Deployment and tests
+- Cloudflare D1 **civic-records-index-dev** (non-production), ID 78b3d94a-4a43-4e9c-a8bf-9a7517e1c55b, created. 0001/0002 schema applied directly via authenticated Cloudflare API; 18 application tables verified; latest check confirmed 0 meetings, 0 documents, 0 job runs.
+- Exact Worker public-data SQL query executed read-only against dev D1, returned [] without error.
+- Latest PR #5 head GitHub CI checks both SUCCESS (Node, SQLite/Python). Verified real Node tests: 11/11 in run 44948318689; Python suite previously verified 16 tests. **Earlier PR #4 Worker green checks executed zero tests** owing to glob mismatch; fixed on #5.
+- No Worker deployed; no D1 binding; no preview hostname/Cloudflare Access/token configured; no DNS at approved records.dcmc.ca or api.records.dcmc.ca; no scheduler/AI inference; no public publishing; no SharePoint migration or deletion. Only empty dev D1 exists in Cloudflare.
 
-## 2026-11-21 — Schema feature branch progress
-Feature branch `feature/source-index-schema` branched from `dev`; added migrations/0001_core.sql, tests/test_schema.py, docs/DATABASE.md and GitHub Actions schema test workflow. Local SQLite baseline tests passed (seven checks). No D1 instance created, no API, no agent deployed. PR awaiting review; bootstrap draft PR #1 is still open/unmerged. Follow-up: run CI, review schema privacy, source version uniqueness, retention authorization and cross-entity references; implement Windsor read-only adapter after branch integration.
+## Decisions and watch-outs
+- Public source-first metadata and provenance index. MIT code; source/document reuse rights assessed separately. All official meetings on portal; source URLs and versions preserved; no assumed votes or adopted outcomes.
+- Downloaded files become eligible for **retention review** 90 days after meeting; no automatic deletion. Holds, source validation and human approval mandatory.
+- Both final service hostnames approved: records.dcmc.ca and api.records.dcmc.ca; no DNS change yet.
+- Source HTML currently validated only with synthetic fixtures; raw live portal parser compatibility is outstanding.
+- Direct API D1 migration application may not create Wrangler migration bookkeeping. Reconcile ledger before invoking Wrangler migrate; do not re-run existing CREATE TABLE migrations blindly.
+- Admin/preview requires strong authenticated access (Cloudflare Access plus secret), independent security review. No paid model usage without explicit approval.
 
-## 2026-11-21 — Windsor discovery pilot
-Feature `feature/windsor-source-discovery` stacked atop schema branch. Added Python stdlib Windsor HTML index reader, URL allowlist, bounded read-only HTTP fetch, dry-run JSON CLI, explicit local-only idempotent SQLite writes, 0002 meeting_documents migration, synthetic fixtures/tests and operations guide. No schedule, cloud API or SharePoint access activated. Run CI and independently validate actual portal HTML prior to use; keep PR stacked until schema branch review. No paid AI and no deletion/public publishing.
+## Exact next steps
+1. Review PRs #1–#5 and integrate in dependency order: #2 into dev; #3 then #4 then #5 into dev, retargeting/rebasing as needed; finally #1 dev→main after review. No unreviewed merge.
+2. Validate source parser against real HTML of official City of Windsor CouncilAgendas portal, including non-Council bodies, cancellations, attachments and video links. Review identity collisions, changes/version drift, provenance and rate limits.
+3. Reconcile existing D1 schema with Wrangler migration tracking and independently review D1/Worker security and publication gates.
+4. After explicit deployment approval, prepare protected development Worker with Cloudflare Access, dev D1 binding, hostname/secret, and non-public preview smoke tests.
+5. Build job log/monitoring dashboard and only then authorize bounded scheduled discovery. Preserve cost caps, source rights and human publication/deletion controls.
 
-## 2026-11-21 — Scope expansion and verification
-User confirmed **all meeting types listed on Windsor's CouncilAgendas portal** are in scope, not just regular Council meetings. The future project domain must be a subdomain of dcmc.ca (records.dcmc.ca proposed, not configured). Expanded adapter to mark cancelled meetings, recognize item-level appendices/submissions and videos from the official listed provider, preserve unusual committee/board session titles, and retain discovery-only status. GitHub Actions [run 44946117505](https://github.com/prophetamessias/civic-records-index/actions/runs/44946117505) completed successfully (16 tests). Earlier failed incremental runs were addressed by regex/test fixes. No live portal fetch by application, D1 deployment, scheduler, DNS change, data publication, or deletion. Prior review order PR #2 into dev, then PR #3 (stacked), then PR #1 dev into main after review.
-
-## 2026-11-21 — API/domain preparation
-User confirmed records.dcmc.ca and api.records.dcmc.ca as intended hostnames. Feature branch feature/api-readiness-dcmc stacked on feature/windsor-source-discovery. Added pre-deployment Cloudflare Worker public-only entry point, fail-closed read-only D1-backed approved agenda items endpoint, static public landing page, Node tests, CI, and docs/HOSTING_AND_D1.md. No Cloudflare D1 provision, DNS mutation, public deployment or automated job schedule. Review and verify CI before merge. Current live Windsor portal can be inspected by web retrieval but raw HTML was unavailable to local parser tests; do not claim live parser verified.
-
-
-## 2026-11-21 — Dev D1 provisioned and preview safety prepared
-- Cloudflare account read-only inventory located four *other-project* D1 databases. Created isolated `civic-records-index-dev` (ID `78b3d94a-4a43-4e9c-a8bf-9a7517e1c55b`), no production counterpart.
-- Applied SQL migrations `0001_core.sql` and `0002_meeting_documents.sql` directly via Cloudflare D1 API, verified 18 application tables; D1 reads confirmed zero municipality/meeting/document/job records. No imported public data and no existing databases affected.
-- Tested the exact Worker `PUBLIC_ITEMS_SQL` against real dev D1: query executed successfully and returned zero rows.
-- Opened draft PR #5 https://github.com/prophetamessias/civic-records-index/pull/5 on `feature/dev-preview-d1`, stacked on PR #4. Added opt-in exact-host bearer-authenticated preview gate and tests. Corrected a prior CI glob bug: earlier Worker workflow showed success with **zero executed tests**; new CI run 44948318689 verified **11/11 Node tests actually ran** and passed; inherited Python/SQLite run 44948318683 succeeded.
-- **No Worker deployed, no DB binding, no DNS changed, no scheduler or AI inference enabled.** Cloudflare's D1 resource itself is the only deployed resource.
-- Migration caveat: manual D1 SQL execution may not populate CLI-managed migration tracking. Reconcile before using the Cloudflare CLI migration command; do not blindly reapply the initial CREATE TABLE migrations.
-- Next: independent PR review and merge in order #2→#3→#4→#5 into dev, then #1 dev→main; choose Cloudflare CLI config and create protected Worker preview with an Access gate and D1 binding following explicit approval. Live Windsor source HTML parser test still unresolved.
+## Continuity
+Canonical ChatGPT Library /Projects/civic-records-index/ stores PROJECT.md, CURRENT_STATE.md, HANDOFF.md, CONTEXT_INDEX.md, DECISIONS.md, CHANGELOG.md, CHAT_LOG.md. GitHub authoritative for code, branches, tests and deployments.
