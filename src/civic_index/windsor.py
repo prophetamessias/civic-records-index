@@ -27,7 +27,7 @@ LABELS = {
     "consolidated striking committee agenda",
 }
 # The portal also publishes titled item-specific attachments and submissions.
-ITEM_MATERIAL_RE = re.compile(r"^(?:item\\s+\\d+(?:\\.\\d+)?\\s*[-–:]|written submission\\b|appendix\\s+[a-z0-9])", re.IGNORECASE)
+ITEM_MATERIAL_RE = re.compile(r"^(?:item\s+\d+(?:\\.\d+)?\s*[-–:]|written submission\b|appendix\s+[a-z0-9])", re.IGNORECASE)
 PUBLIC_VIDEO_HOSTS = {"csg001-harmony.sliq.net"}
 MAX_HTML_BYTES = 4_000_000
 MAX_MEETINGS = 120
@@ -130,9 +130,9 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
                 current = None
                 return
             body = " ".join(match.group("body").split()).strip()
-            cancelled = bool(re.search(r"\\s+-\\s+cancelled\\s*$", body, re.IGNORECASE))
+            cancelled = bool(re.search(r"\s+-\s+cancelled\s*$", body, re.IGNORECASE))
             # Remove the cancellation tag from the stable identity, so status changes do not create a second meeting.
-            body = re.sub(r"\\s+-\\s+cancelled\\s*$", "", body, flags=re.IGNORECASE).strip()
+            body = re.sub(r"\s+-\s+cancelled\s*$", "", body, flags=re.IGNORECASE).strip()
             if len(body) < 4:
                 return
             key = stable_id("meeting", "windsor", body.lower(), when.isoformat())
