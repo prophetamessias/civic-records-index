@@ -33,3 +33,13 @@ User confirmed **all meeting types listed on Windsor's CouncilAgendas portal** a
 
 ## 2026-11-21 — API/domain preparation
 User confirmed records.dcmc.ca and api.records.dcmc.ca as intended hostnames. Feature branch feature/api-readiness-dcmc stacked on feature/windsor-source-discovery. Added pre-deployment Cloudflare Worker public-only entry point, fail-closed read-only D1-backed approved agenda items endpoint, static public landing page, Node tests, CI, and docs/HOSTING_AND_D1.md. No Cloudflare D1 provision, DNS mutation, public deployment or automated job schedule. Review and verify CI before merge. Current live Windsor portal can be inspected by web retrieval but raw HTML was unavailable to local parser tests; do not claim live parser verified.
+
+
+## 2026-11-21 — Dev D1 provisioned and preview safety prepared
+- Cloudflare account read-only inventory located four *other-project* D1 databases. Created isolated `civic-records-index-dev` (ID `78b3d94a-4a43-4e9c-a8bf-9a7517e1c55b`), no production counterpart.
+- Applied SQL migrations `0001_core.sql` and `0002_meeting_documents.sql` directly via Cloudflare D1 API, verified 18 application tables; D1 reads confirmed zero municipality/meeting/document/job records. No imported public data and no existing databases affected.
+- Tested the exact Worker `PUBLIC_ITEMS_SQL` against real dev D1: query executed successfully and returned zero rows.
+- Opened draft PR #5 https://github.com/prophetamessias/civic-records-index/pull/5 on `feature/dev-preview-d1`, stacked on PR #4. Added opt-in exact-host bearer-authenticated preview gate and tests. Corrected a prior CI glob bug: earlier Worker workflow showed success with **zero executed tests**; new CI run 44948318689 verified **11/11 Node tests actually ran** and passed; inherited Python/SQLite run 44948318683 succeeded.
+- **No Worker deployed, no DB binding, no DNS changed, no scheduler or AI inference enabled.** Cloudflare's D1 resource itself is the only deployed resource.
+- Migration caveat: manual D1 SQL execution may not populate CLI-managed migration tracking. Reconcile before using the Cloudflare CLI migration command; do not blindly reapply the initial CREATE TABLE migrations.
+- Next: independent PR review and merge in order #2→#3→#4→#5 into dev, then #1 dev→main; choose Cloudflare CLI config and create protected Worker preview with an Access gate and D1 binding following explicit approval. Live Windsor source HTML parser test still unresolved.
