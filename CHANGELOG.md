@@ -1,6 +1,9 @@
 # Changelog
 
 ## 2026-11-21
+- Provisioned isolated Cloudflare development D1 `civic-records-index-dev`, applied 0001/0002 migrations and verified empty application tables and working read-only Worker SQL query.
+- Added draft PR #5: authenticated fail-closed preview host, Node preview tests, fix for Worker CI zero-test glob, and development deployment documentation. Actual 11 Node tests and inherited Python/SQLite suite passed in CI. No Worker/DNS/scheduler deployment.
+
 - Confirmed records.dcmc.ca and api.records.dcmc.ca as future hostnames; implemented a non-deployed public-only Cloudflare Worker skeleton, publish-gated D1 read query, offline tests and hosting readiness documentation on a stacked feature branch. No DNS changes.
 
 - Expanded the Windsor discovery adapter and fixtures to index all portal-listed meeting types, cancelled records, item-specific public attachments and published video links. GitHub Actions test suite: 16 passed (run 44946117505). No deployments.
