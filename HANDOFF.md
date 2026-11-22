@@ -56,3 +56,16 @@ Canonical ChatGPT Library /Projects/civic-records-index/ stores PROJECT.md, CURR
 - PR #4 latest CI: Python 31 tests and Node Worker tests passed (runs 45082908873 and 45082908861). PR #5 latest CI: Python 31 and Node 11 passed (runs 45082912131 and 45082912202).
 - Residual release blocker: approvals are not yet bound to an immutable evidence/version snapshot or an explicit revocation policy. `documents.current_version_id` is an application-managed pointer; source updates and publication-review versioning need independent review before public deployment.
 - No feature PR merged into dev/main, no Worker, DNS, or existing dev D1 changes. Disposable migration test database from previous session already deleted.
+
+
+## 2026-11-22 — Security architecture review and release-gate checkpoint
+- Current draft PR stack remains #1 dev→main, #2 schema→dev, #3 discovery→schema, #4 API→discovery, #5 preview→API. No PR merged; dev/main unchanged.
+- PR #4 adds migration `0005_publication_authorizations.sql` and Worker SQL requiring explicit reviewer-identified current evidence version, SHA-256, exact reviewed item/meeting snapshot and nonrevoked approval. Legacy `publication_reviews` entries are not sufficient. Database triggers prevent forged/outdated authorization based on changed/uncleared versions, prevent reactivation/retargeting and disallow deleting authorization history. There is no live reviewer mutation API.
+- PR #3 recognizes official numbered in-camera agenda session links and fails closed on meeting/document discovery caps (no silent truncation). Real portal read-only inspection found numbered sessions and varied meeting types; raw HTML parser compatibility remains unverified, as do full-history backfill and authoritative duplicate-session identity.
+- Integration initially overwrote preview-specific auth on PR #5; Node CI caught failure (run 45084793326). Restored preview auth while preserving new authorization SQL (commit 8b43c9684e71ccbe431b27a0b0e5d69aba18f95e).
+- Final checked PR #5 merged tip `0b0269329e655fb00b74ecba45c52d2f03f2adaa`: schema/discovery/publication **35 Python tests passed** (run 45084877195), Worker/preview **11 Node tests passed** (run 45084877199).
+- Review record: `docs/SECURITY_ARCHITECTURE_REVIEW.md`. This was a ChatGPT implementer self-review, NOT independent Gemini/third-party review; report verdict HOLD DEV MERGE pending independent review and resolution/acceptance of listed HIGH findings.
+- Outstanding before live operation: reviewer authentication/authorization, complete multi-document evidence manifest policy, raw portal HTML coverage verification and full historical backfill, 0005 disposable D1 compatibility validation, existing dev D1 migration ledger reconciliation and restorable recovery point, Cloudflare Access and secrets for preview. Public domains/DNS/Worker routes remain undeployed.
+- No changes to the existing `civic-records-index-dev` D1, other Cloudflare resources, public output, DNS, data imports, automated publishing, paid inference or cached record deletions.
+
+**Next:** obtain actual independent review, resolve or explicitly accept findings for integration into dev, verify PR ancestry/CI on current heads, then seek explicit human approval to merge sequentially. Do NOT deploy, migrate dev D1, or enable ingestion before separate reviews.
