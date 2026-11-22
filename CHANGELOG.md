@@ -19,3 +19,12 @@
 - Fresh Cloudflare read-only preflight: 0 meetings, 0 document versions, 0 duplicate unhashed-version groups, and NO migration ledger table detected. The old `meetings` UNIQUE(municipality_id,body,meeting_date) still exists. No DB writes performed.
 - DO NOT apply migrations remotely or replay `0001`/`0002`; first verify CLI bookkeeping, snapshot D1, and independently review a compatible strategy for removing the old meetings constraint without risking foreign keys. PR #2 changes are NOT yet in PR #3 ancestry; stacked branches need intentional reconciliation after review.
 - Tests added for idempotent 0003 application on legacy local SQLite and duplicate-heading fail-closed behaviour. CI result to verify on new PR #3 head; prior green runs apply to older code.
+
+
+## 2026-11-22 — Verified SQLite meeting identity rebuild
+- Enabled push CI for the PR #3 discovery branch; new migration/discovery tests execute on each relevant commit.
+- Added `migrations/0004_meetings_identity.sql` to remove the old per-body/day uniqueness rule using FK deferral and a migration snapshot. The first populated synthetic CI run caught trigger-revalidation failure; the second caught deferred FK failure. Both were resolved and tracked in GitHub Actions.
+- The final populated SQLite regression passed on commit `5417ef53cc4c3339b3c749a7fd10a728f4747921`, run https://github.com/prophetamessias/civic-records-index/actions/runs/45067804159 . Child rows for agenda items, resolutions, meeting documents and cached copies were retained; `PRAGMA foreign_key_check` empty; duplicate same-body/day distinct meeting IDs permitted; original primary-key and retention guards remain enforced.
+- Added `docs/D1_MIGRATION_RUNBOOK.md` with preflight, backup/recovery, migration ledger reconciliation, reference-count comparison and release gates.
+- Existing dev D1 is UNCHANGED. No migration bookkeeping table was seen at last read-only check, and no D1 worker/DNS was configured.
+- Important: successful SQLite CI does not establish Cloudflare D1 migration transaction compatibility. Validate in copy-based D1 environment and obtain independent review before remote application. PR #2 schema corrections remain on a different branch and are not yet reconciled into the PR #3 ancestry; keep PRs in draft. Live portal session identity still pending source verification.
