@@ -96,6 +96,8 @@ class PublicGateTests(unittest.TestCase):
         self.assertEqual(self.published(), [])
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.execute("UPDATE publication_authorizations SET status='approved', revoked_by=NULL, revoked_at=NULL WHERE id='auth1'")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("DELETE FROM publication_authorizations WHERE id='auth1'")
         self.approve(authorization="auth2")
         self.assertEqual(len(self.published()), 1)
 
