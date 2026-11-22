@@ -91,6 +91,41 @@ class WindsorDiscoveryTests(unittest.TestCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 db.execute("UPDATE cache_records SET status='deleted' WHERE id='c'")
 
+    def test_meeting_identity_rebuild_preserves_references(self):
+        """Legacy 0001+0002 -> additive 0003 -> transactional 0004 with live-like rows."""
+        with sqlite3.connect(":memory:") as db:
+            db.executescript((ROOT / "migrations" / "0001_core.sql").read_text())
+            db.executescript((ROOT / "migrations" / "0002_meeting_documents.sql").read_text())
+            db.executescript((ROOT / "migrations" / "0003_integrity_guards.sql").read_text())
+            db.execute("INSERT INTO municipalities(id,name,province,official_homepage) VALUES ('w','Windsor','ON','https://citywindsor.ca')")
+            db.execute("INSERT INTO meetings(id,municipality_id,body,meeting_date) VALUES ('m1','w','Council','2026-11-23')")
+            db.execute("INSERT INTO agenda_items(id,meeting_id,item_number,title) VALUES ('a1','m1','1','Item')")
+            db.execute("INSERT INTO documents(id,municipality_id,document_type,title) VALUES ('d1','w','agenda','Agenda')")
+            db.execute("INSERT INTO document_versions(id,document_id,source_url,source_host) VALUES ('v1','d1','https://citywindsor.ca/a','citywindsor.ca')")
+            db.execute("INSERT INTO meeting_documents(meeting_id,version_id,label) VALUES ('m1','v1','Agenda')")
+            db.execute("INSERT INTO resolutions(id,meeting_id,item_id,resolution_number,decision_status,source_version_id) VALUES ('r1','m1','a1','CR1','proposed','v1')")
+            db.execute("INSERT INTO cache_records(id,meeting_id,version_id,storage_provider,storage_locator,cached_at,review_eligible_on) VALUES ('c1','m1','v1','local','synthetic','2026-11-23','2027-02-21')")
+            original = {table: db.execute("SELECT COUNT(*) FROM " + table).fetchone()[0]
+                        for table in ("meetings","agenda_items","resolutions","meeting_documents","cache_records")}
+            migration = (ROOT / "migrations" / "0004_meetings_identity.sql").read_text()
+            # executescript commits an existing transaction, so explicitly
+            # wrap the statements in one local test transaction.
+            db.executescript("BEGIN;\n" + migration + "\nCOMMIT;")
+            self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+            for table, n in original.items():
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM " + table).fetchone()[0], n, table)
+            self.assertEqual(db.execute("SELECT meeting_id FROM agenda_items WHERE id='a1'").fetchone(), ("m1",))
+            self.assertEqual(db.execute("SELECT meeting_id FROM resolutions WHERE id='r1'").fetchone(), ("m1",))
+            self.assertEqual(db.execute("SELECT meeting_id FROM meeting_documents WHERE version_id='v1'").fetchone(), ("m1",))
+            self.assertEqual(db.execute("SELECT meeting_id FROM cache_records WHERE id='c1'").fetchone(), ("m1",))
+            db.execute("INSERT INTO meetings(id,municipality_id,body,meeting_date) VALUES ('m2','w','Council','2026-11-23')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO meetings(id,municipality_id,body,meeting_date) VALUES ('m2','w','Council','2026-11-23')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO cache_records(id,meeting_id,version_id,storage_provider,storage_locator,cached_at,review_eligible_on) VALUES ('c2','m1','v1','local','s2','2026-11-23','2026-11-24')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("UPDATE cache_records SET status='deleted' WHERE id='c1'")
+
     def test_broken_meeting_date_not_accepted(self):
         html = "<div>City Council - Monday, November 99, 2026</div><a href='https://citywindsor.ca/test.pdf'>Agenda</a>"
         self.assertEqual(discover(html, since="2026-11-01"), [])
