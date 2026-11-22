@@ -1,0 +1,22 @@
+name: Schema tests
+on:
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'tests/**'
+      - '.github/workflows/schema-tests.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'migrations/**'
+      - 'tests/**'
+      - '.github/workflows/schema-tests.yml'
+permissions:
+  contents: read
+jobs:
+  sqlite-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SQLite migration and constraints
+        run: python -m unittest discover -s tests -v

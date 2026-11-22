@@ -1,0 +1,107 @@
+-- Civic Records Index: D1-compatible SQLite baseline. Metadata only.
+PRAGMA foreign_keys = ON;
+CREATE TABLE municipalities (id TEXT PRIMARY KEY, name TEXT NOT NULL, province TEXT NOT NULL, country TEXT NOT NULL DEFAULT 'CA', official_homepage TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE source_endpoints (id TEXT PRIMARY KEY, municipality_id TEXT NOT NULL REFERENCES municipalities(id), label TEXT NOT NULL, url TEXT NOT NULL, source_type TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN(0,1)), last_checked_at TEXT, last_success_at TEXT, last_error TEXT, UNIQUE(municipality_id,url));
+CREATE TABLE meetings (id TEXT PRIMARY KEY, municipality_id TEXT NOT NULL REFERENCES municipalities(id), body TEXT NOT NULL, meeting_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN('scheduled','completed','cancelled','unknown')), official_url TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, CHECK(length(trim(body)) > 0));
+CREATE TABLE agenda_items (id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL REFERENCES meetings(id), item_number TEXT NOT NULL, title TEXT NOT NULL, disposition TEXT NOT NULL DEFAULT 'unknown' CHECK(disposition IN('unknown','proposed','deferred','withdrawn','adopted','defeated','received','referred')), disposition_verified INTEGER NOT NULL DEFAULT 0 CHECK(disposition_verified IN(0,1)), UNIQUE(meeting_id,item_number));
+CREATE TABLE documents (id TEXT PRIMARY KEY, municipality_id TEXT NOT NULL REFERENCES municipalities(id), document_type TEXT NOT NULL, title TEXT NOT NULL, official_document_number TEXT, current_version_id TEXT REFERENCES document_versions(id) DEFERRABLE INITIALLY DEFERRED, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE document_versions (id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id), source_url TEXT NOT NULL, source_host TEXT NOT NULL, retrieved_at TEXT, published_at TEXT, sha256 TEXT CHECK(sha256 IS NULL OR length(sha256)=64), size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes>=0), page_count INTEGER CHECK(page_count IS NULL OR page_count>=1), content_type TEXT, version_label TEXT, rights_review TEXT NOT NULL DEFAULT 'pending' CHECK(rights_review IN('pending','approved','restricted')), verification_status TEXT NOT NULL DEFAULT 'unverified' CHECK(verification_status IN('unverified','verified','changed','missing','disputed')), UNIQUE(document_id,source_url,sha256));
+CREATE INDEX idx_doc_versions_source ON document_versions(source_url);
+CREATE TABLE agenda_item_documents (item_id TEXT NOT NULL REFERENCES agenda_items(id), version_id TEXT NOT NULL REFERENCES document_versions(id), relation_type TEXT NOT NULL CHECK(relation_type IN('agenda','staff_report','attachment','minutes','bylaw','other')), page_start INTEGER, page_end INTEGER, CHECK(page_start IS NULL OR page_start>=1), CHECK(page_end IS NULL OR (page_start IS NOT NULL AND page_end>=page_start)), PRIMARY KEY(item_id,version_id,relation_type));
+CREATE TABLE resolutions (id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL REFERENCES meetings(id), item_id TEXT REFERENCES agenda_items(id), resolution_number TEXT NOT NULL, decision_status TEXT NOT NULL CHECK(decision_status IN('proposed','recommended','adopted','defeated','withdrawn','unknown')), decision_text TEXT, source_version_id TEXT NOT NULL REFERENCES document_versions(id), source_page INTEGER CHECK(source_page IS NULL OR source_page>=1), verified INTEGER NOT NULL DEFAULT 0 CHECK(verified IN(0,1)), UNIQUE(meeting_id,resolution_number));
+CREATE TABLE recorded_votes (id TEXT PRIMARY KEY, resolution_id TEXT NOT NULL REFERENCES resolutions(id), member_name TEXT NOT NULL, vote TEXT NOT NULL CHECK(vote IN('yes','no','abstain','absent','recused')), source_version_id TEXT NOT NULL REFERENCES document_versions(id), source_page INTEGER CHECK(source_page IS NULL OR source_page>=1), UNIQUE(resolution_id,member_name));
+CREATE TABLE record_relationships (id TEXT PRIMARY KEY, from_type TEXT NOT NULL CHECK(from_type IN('agenda_item','resolution','document')), from_id TEXT NOT NULL, to_type TEXT NOT NULL CHECK(to_type IN('agenda_item','resolution','document')), to_id TEXT NOT NULL, relationship TEXT NOT NULL CHECK(relationship IN('implements','amends','follows_up','recommends','supersedes','related_to')), source_version_id TEXT NOT NULL REFERENCES document_versions(id), source_page INTEGER CHECK(source_page IS NULL OR source_page>=1), review_status TEXT NOT NULL DEFAULT 'unverified' CHECK(review_status IN('unverified','verified','rejected')), UNIQUE(from_type,from_id,to_type,to_id,relationship));
+-- Polymorphic IDs require application-level referential validation.
+CREATE TABLE evidence_claims (id TEXT PRIMARY KEY, item_id TEXT REFERENCES agenda_items(id), claim_text TEXT NOT NULL, source_version_id TEXT NOT NULL REFERENCES document_versions(id), source_page INTEGER CHECK(source_page IS NULL OR source_page>=1), status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN('draft','verified','rejected','disputed')), reviewed_by TEXT, reviewed_at TEXT, CHECK(status!='verified' OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)));
+CREATE TABLE publication_reviews (id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES agenda_items(id), status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN('pending','approved','rejected')), reviewer TEXT, reviewed_at TEXT, CHECK(status!='approved' OR (reviewer IS NOT NULL AND reviewed_at IS NOT NULL)));
+CREATE TABLE cache_records (id TEXT PRIMARY KEY, version_id TEXT NOT NULL REFERENCES document_versions(id), meeting_id TEXT NOT NULL REFERENCES meetings(id), storage_provider TEXT NOT NULL, storage_locator TEXT NOT NULL, cached_at TEXT NOT NULL, review_eligible_on TEXT NOT NULL, source_checked_at TEXT, source_version_match INTEGER NOT NULL DEFAULT 0 CHECK(source_version_match IN(0,1)), research_complete INTEGER NOT NULL DEFAULT 0 CHECK(research_complete IN(0,1)), outcomes_reconciled INTEGER NOT NULL DEFAULT 0 CHECK(outcomes_reconciled IN(0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN('active','review_due','held','deleted')), deleted_at TEXT, UNIQUE(version_id,meeting_id,storage_locator));
+CREATE TABLE preservation_holds (id TEXT PRIMARY KEY, cache_id TEXT NOT NULL REFERENCES cache_records(id), reason TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1)), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, released_by TEXT, released_at TEXT, CHECK(active=1 OR (released_by IS NOT NULL AND released_at IS NOT NULL)));
+CREATE TABLE deletion_reviews (id TEXT PRIMARY KEY, cache_id TEXT NOT NULL REFERENCES cache_records(id), status TEXT NOT NULL DEFAULT 'proposed' CHECK(status IN('proposed','blocked','approved','executed')), checks_json TEXT NOT NULL DEFAULT '{}', reviewer TEXT, reviewed_at TEXT, execution_at TEXT, executed_by TEXT, CHECK(status NOT IN('approved','executed') OR (reviewer IS NOT NULL AND reviewed_at IS NOT NULL)), CHECK(status!='executed' OR (executed_by IS NOT NULL AND execution_at IS NOT NULL)));
+CREATE TABLE job_runs (id TEXT PRIMARY KEY, kind TEXT NOT NULL, trigger_type TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN('queued','running','succeeded','failed','cancelled')), started_at TEXT NOT NULL, finished_at TEXT, input_count INTEGER NOT NULL DEFAULT 0, output_count INTEGER NOT NULL DEFAULT 0, ai_input_tokens INTEGER NOT NULL DEFAULT 0, ai_output_tokens INTEGER NOT NULL DEFAULT 0, estimated_cost_usd REAL NOT NULL DEFAULT 0, error_code TEXT, CHECK(estimated_cost_usd>=0));
+CREATE TABLE audit_events (id TEXT PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, event_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, details_json TEXT NOT NULL DEFAULT '{}');
+CREATE INDEX idx_meetings_date ON meetings(meeting_date);
+CREATE INDEX idx_items_meeting ON agenda_items(meeting_id);
+CREATE INDEX idx_resolution_number ON resolutions(resolution_number);
+CREATE INDEX idx_cache_due ON cache_records(review_eligible_on,status);
+CREATE INDEX idx_holds_active ON preservation_holds(cache_id,active);
+CREATE INDEX idx_jobs_kind_started ON job_runs(kind,started_at);
+
+
+-- Baseline integrity guards: fresh installs only. Existing D1 requires a separate
+-- forward migration after a backup, migration-ledger reconciliation and review.
+CREATE INDEX idx_meetings_body_day ON meetings(municipality_id, body, meeting_date);
+-- An un-hashed source observation may be recorded only once per document + URL.
+CREATE UNIQUE INDEX uq_version_unhashed_source ON document_versions(document_id,source_url) WHERE sha256 IS NULL;
+-- Prevent a document's current pointer from selecting another document's version.
+CREATE TRIGGER guard_document_current_insert BEFORE INSERT ON documents
+WHEN NEW.current_version_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM document_versions v WHERE v.id=NEW.current_version_id AND v.document_id=NEW.id
+) BEGIN SELECT RAISE(ABORT,'current_version_not_owned'); END;
+CREATE TRIGGER guard_document_current_update BEFORE UPDATE OF current_version_id ON documents
+WHEN NEW.current_version_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM document_versions v WHERE v.id=NEW.current_version_id AND v.document_id=NEW.id
+) BEGIN SELECT RAISE(ABORT,'current_version_not_owned'); END;
+-- Resolution must reference an agenda item from the same meeting.
+CREATE TRIGGER guard_resolution_item_insert BEFORE INSERT ON resolutions
+WHEN NEW.item_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM agenda_items a WHERE a.id=NEW.item_id AND a.meeting_id=NEW.meeting_id
+) BEGIN SELECT RAISE(ABORT,'resolution_item_meeting_mismatch'); END;
+CREATE TRIGGER guard_resolution_item_update BEFORE UPDATE OF item_id,meeting_id ON resolutions
+WHEN NEW.item_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM agenda_items a WHERE a.id=NEW.item_id AND a.meeting_id=NEW.meeting_id
+) BEGIN SELECT RAISE(ABORT,'resolution_item_meeting_mismatch'); END;
+-- Documents connected to agenda items must belong to the same municipality.
+CREATE TRIGGER guard_item_document_insert BEFORE INSERT ON agenda_item_documents
+WHEN NOT EXISTS (
+ SELECT 1 FROM agenda_items a JOIN meetings m ON m.id=a.meeting_id
+ JOIN document_versions v ON v.id=NEW.version_id JOIN documents d ON d.id=v.document_id
+ WHERE a.id=NEW.item_id AND m.municipality_id=d.municipality_id
+) BEGIN SELECT RAISE(ABORT,'item_document_municipality_mismatch'); END;
+CREATE TRIGGER guard_item_document_update BEFORE UPDATE OF item_id,version_id ON agenda_item_documents
+WHEN NOT EXISTS (
+ SELECT 1 FROM agenda_items a JOIN meetings m ON m.id=a.meeting_id
+ JOIN document_versions v ON v.id=NEW.version_id JOIN documents d ON d.id=v.document_id
+ WHERE a.id=NEW.item_id AND m.municipality_id=d.municipality_id
+) BEGIN SELECT RAISE(ABORT,'item_document_municipality_mismatch'); END;
+-- Polymorphic relationship targets must exist, on creation and mutation.
+CREATE TRIGGER guard_relationship_insert BEFORE INSERT ON record_relationships
+WHEN NOT (
+  (NEW.from_type='agenda_item' AND EXISTS(SELECT 1 FROM agenda_items WHERE id=NEW.from_id)) OR
+  (NEW.from_type='resolution' AND EXISTS(SELECT 1 FROM resolutions WHERE id=NEW.from_id)) OR
+  (NEW.from_type='document' AND EXISTS(SELECT 1 FROM documents WHERE id=NEW.from_id))
+) OR NOT (
+  (NEW.to_type='agenda_item' AND EXISTS(SELECT 1 FROM agenda_items WHERE id=NEW.to_id)) OR
+  (NEW.to_type='resolution' AND EXISTS(SELECT 1 FROM resolutions WHERE id=NEW.to_id)) OR
+  (NEW.to_type='document' AND EXISTS(SELECT 1 FROM documents WHERE id=NEW.to_id))
+) BEGIN SELECT RAISE(ABORT,'relationship_target_missing'); END;
+CREATE TRIGGER guard_relationship_update BEFORE UPDATE OF from_type,from_id,to_type,to_id ON record_relationships
+WHEN NOT (
+  (NEW.from_type='agenda_item' AND EXISTS(SELECT 1 FROM agenda_items WHERE id=NEW.from_id)) OR
+  (NEW.from_type='resolution' AND EXISTS(SELECT 1 FROM resolutions WHERE id=NEW.from_id)) OR
+  (NEW.from_type='document' AND EXISTS(SELECT 1 FROM documents WHERE id=NEW.from_id))
+) OR NOT (
+  (NEW.to_type='agenda_item' AND EXISTS(SELECT 1 FROM agenda_items WHERE id=NEW.to_id)) OR
+  (NEW.to_type='resolution' AND EXISTS(SELECT 1 FROM resolutions WHERE id=NEW.to_id)) OR
+  (NEW.to_type='document' AND EXISTS(SELECT 1 FROM documents WHERE id=NEW.to_id))
+) BEGIN SELECT RAISE(ABORT,'relationship_target_missing'); END;
+-- Cache eligibility may not precede 90 calendar days after its meeting.
+CREATE TRIGGER guard_cache_eligible_insert BEFORE INSERT ON cache_records
+WHEN NEW.review_eligible_on < (SELECT date(meeting_date,'+90 days') FROM meetings WHERE id=NEW.meeting_id)
+BEGIN SELECT RAISE(ABORT,'retention_review_too_early'); END;
+CREATE TRIGGER guard_cache_eligible_update BEFORE UPDATE OF review_eligible_on,meeting_id ON cache_records
+WHEN NEW.review_eligible_on < (SELECT date(meeting_date,'+90 days') FROM meetings WHERE id=NEW.meeting_id)
+BEGIN SELECT RAISE(ABORT,'retention_review_too_early'); END;
+-- No deletion workflow is implemented or authorized. Refuse approval/execution
+-- even if a caller supplies forged review identities and timestamps.
+CREATE TRIGGER block_deletion_review_insert BEFORE INSERT ON deletion_reviews
+WHEN NEW.status IN ('approved','executed')
+BEGIN SELECT RAISE(ABORT,'deletion_workflow_disabled'); END;
+CREATE TRIGGER block_deletion_review_update BEFORE UPDATE OF status ON deletion_reviews
+WHEN NEW.status IN ('approved','executed')
+BEGIN SELECT RAISE(ABORT,'deletion_workflow_disabled'); END;
+CREATE TRIGGER block_cache_deleted_insert BEFORE INSERT ON cache_records
+WHEN NEW.status='deleted' OR NEW.deleted_at IS NOT NULL
+BEGIN SELECT RAISE(ABORT,'deletion_workflow_disabled'); END;
+CREATE TRIGGER block_cache_deleted_update BEFORE UPDATE OF status,deleted_at ON cache_records
+WHEN NEW.status='deleted' OR NEW.deleted_at IS NOT NULL
+BEGIN SELECT RAISE(ABORT,'deletion_workflow_disabled'); END;
