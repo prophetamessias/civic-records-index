@@ -17,3 +17,6 @@ All test records are synthetic, even where a municipality and meeting date are u
 
 ## Integrity review (2026-11-22)
 Baseline `0001_core.sql` now accepts distinct same-day meeting IDs, guards un-hashed duplicate source observations, checks document ownership and record references, and blocks deletion approval/execution. Tests use synthetic records only. **This is a corrected fresh-install baseline, not an upgrade to the already-created Cloudflare D1.** The existing development database has `0001` and `0002` installed by direct API; before any live migration, reconcile Wrangler's migration ledger, back up/inspect D1, and write/test a separate forward-only migration. Do not rerun or overwrite `0001` on that database. Manual review and publication gates remain mandatory.
+
+
+**2026-11-22 update:** PR #2's corrected schema was incorporated into PR #3 in a two-parent Git merge, and the original deployed 0001 is preserved in `tests/fixtures/legacy_0001_core.sql` for regression testing. Both fresh and legacy SQLite paths passed (28 tests in run 45078593321). A temporary isolated Cloudflare D1 was migrated from original 0001+0002 through 0003+0004 with linked synthetic records, clean foreign keys, successful collision handling and blocked deletion states; it was subsequently deleted. The actual dev database remains untouched. See `docs/D1_MIGRATION_RUNBOOK.md`.
