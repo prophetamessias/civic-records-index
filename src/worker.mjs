@@ -50,7 +50,9 @@ WHERE ai.disposition_verified = 1
   AND EXISTS (
     SELECT 1 FROM agenda_item_documents AS aid
     JOIN document_versions AS dv ON dv.id = aid.version_id
+    JOIN documents AS d ON d.id = dv.document_id
     WHERE aid.item_id = ai.id
+      AND d.current_version_id = dv.id
       AND dv.verification_status = 'verified'
       AND dv.rights_review = 'approved'
   )
