@@ -40,6 +40,14 @@ class ExpandedCoverageTests(unittest.TestCase):
         transit = result[0]
         self.assertEqual(len(transit.documents), 2)
         self.assertEqual(transit.documents[1].label, "Video")
+    def test_numbered_in_camera_agenda_sessions_preserved(self):
+        html = """<div>City Council - Monday, July 27, 2026</div>
+        <a href="https://www.citywindsor.ca/documents/TEST-ONLY/one.pdf">In-Camera Agenda (Session 1)</a>
+        <a href="https://www.citywindsor.ca/documents/TEST-ONLY/two.pdf">In-Camera Agenda (Session 2)</a>"""
+        meetings = discover(html, since="2026-01-01")
+        self.assertEqual(len(meetings), 1)
+        self.assertEqual([d.label for d in meetings[0].documents],
+                         ["In-Camera Agenda (Session 1)", "In-Camera Agenda (Session 2)"])
     def test_video_host_is_exact_allowlist(self):
         self.assertIsNotNone(official_url("https://csg001-harmony.sliq.net/TEST-ONLY/video"))
         self.assertIsNone(official_url("https://fake-csg001-harmony.sliq.net/TEST-ONLY/video"))

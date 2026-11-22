@@ -27,6 +27,7 @@ LABELS = {
     "consolidated striking committee agenda",
 }
 # The portal also publishes titled item-specific attachments and submissions.
+SESSION_AGENDA_RE = re.compile(r"^in-camera agenda\s*\(session\s+\d+\)$", re.IGNORECASE)
 ITEM_MATERIAL_RE = re.compile(r"^(?:item\s+\d+(?:\.\d+)?\s*[-–:]|written submission\b|appendix\s+[a-z0-9])", re.IGNORECASE)
 PUBLIC_VIDEO_HOSTS = {"csg001-harmony.sliq.net"}
 MAX_HTML_BYTES = 4_000_000
@@ -157,7 +158,7 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
             if current is None or len(current["documents"]) >= MAX_LINKS_PER_MEETING:
                 continue
             normalized = " ".join(label.lower().replace("–", "-").split())
-            if normalized not in LABELS and not ITEM_MATERIAL_RE.match(label.strip()):
+            if normalized not in LABELS and not SESSION_AGENDA_RE.match(normalized) and not ITEM_MATERIAL_RE.match(label.strip()):
                 continue
             url = official_url(href, base_url)
             if not url:
