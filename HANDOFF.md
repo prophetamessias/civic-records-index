@@ -30,3 +30,11 @@ Feature `feature/windsor-source-discovery` stacked atop schema branch. Added Pyt
 
 ## 2026-11-21 — Scope expansion and verification
 User confirmed **all meeting types listed on Windsor's CouncilAgendas portal** are in scope, not just regular Council meetings. The future project domain must be a subdomain of dcmc.ca (records.dcmc.ca proposed, not configured). Expanded adapter to mark cancelled meetings, recognize item-level appendices/submissions and videos from the official listed provider, preserve unusual committee/board session titles, and retain discovery-only status. GitHub Actions [run 44946117505](https://github.com/prophetamessias/civic-records-index/actions/runs/44946117505) completed successfully (16 tests). Earlier failed incremental runs were addressed by regex/test fixes. No live portal fetch by application, D1 deployment, scheduler, DNS change, data publication, or deletion. Prior review order PR #2 into dev, then PR #3 (stacked), then PR #1 dev into main after review.
+
+
+## 2026-11-22 — D1 migration preparation and discovery collision guard
+- PR #3 now includes `migrations/0003_integrity_guards.sql`, an ADDITIVE, NOT APPLIED migration for legacy dev D1 (0001+0002) with guarded indexes/triggers for provenance, integrity, retention minimum and deletion blocking.
+- Discovery now fails closed on duplicate municipality/body/day headings; it does NOT yet resolve two legitimately separate same-name/same-day sessions without an official source session ID. Manual identity review required before recurring ingestion.
+- Fresh Cloudflare read-only preflight: 0 meetings, 0 document versions, 0 duplicate unhashed-version groups, and NO migration ledger table detected. The old `meetings` UNIQUE(municipality_id,body,meeting_date) still exists. No DB writes performed.
+- DO NOT apply migrations remotely or replay `0001`/`0002`; first verify CLI bookkeeping, snapshot D1, and independently review a compatible strategy for removing the old meetings constraint without risking foreign keys. PR #2 changes are NOT yet in PR #3 ancestry; stacked branches need intentional reconciliation after review.
+- Tests added for idempotent 0003 application on legacy local SQLite and duplicate-heading fail-closed behaviour. CI result to verify on new PR #3 head; prior green runs apply to older code.
