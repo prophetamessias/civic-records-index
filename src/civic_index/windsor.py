@@ -141,9 +141,12 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
                 found.append(current)
                 seen.add(key)
             else:
-                current = next((m for m in found if m["meeting_id"] == key), None)
-                if current and cancelled:
-                    current["status"] = "cancelled"
+                # A repeated same-body/same-day heading may represent a distinct
+                # session. Never silently merge documents into one meeting.
+                raise ValueError(
+                    f"Ambiguous repeated meeting heading: {body} on {when.isoformat()}; "
+                    "requires a portal-native session identifier or human review"
+                )
     for kind, label, href in parser.events:
         if kind == "text":
             text_parts.append(label)
