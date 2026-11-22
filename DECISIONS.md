@@ -21,3 +21,7 @@ Windsor discovery encompasses all meeting entries and published source links on 
 
 ## 2026-11-21 — Hostnames confirmed
 The user approved **records.dcmc.ca** for the Civic Records Index public interface and **api.records.dcmc.ca** for its separately hosted API. Domain names are final choices, but no DNS records are provisioned or traffic routes deployed pending service readiness, source verification and rollout review.
+
+
+## 2026-11-22 — Version-bound publication authorization (proposed, feature branch)
+A public release requires an explicit reviewer-identified authorization for the exact current, verified, rights-cleared source version and its SHA-256, together with the exact published item/meeting field snapshot. Legacy per-item review flags cannot authorize public release by themselves. Authorized snapshots are revocable and their history immutable. No reviewer write endpoint exists yet; independent security review and development deployment approvals are required. The evidence completeness policy must evaluate all pertinent documents, not just one qualifying version.
