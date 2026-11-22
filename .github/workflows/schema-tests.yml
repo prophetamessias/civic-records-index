@@ -6,7 +6,7 @@ on:
       - 'tests/**'
       - '.github/workflows/schema-tests.yml'
   push:
-    branches: [dev]
+    branches: [dev, feature/windsor-source-discovery]
     paths:
       - 'migrations/**'
       - 'tests/**'

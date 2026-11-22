@@ -42,3 +42,9 @@ migrations/0001_core.sql, migrations/0002_meeting_documents.sql, src/civic_index
 
 ## Continuity
 Canonical ChatGPT Library /Projects/civic-records-index/ stores PROJECT.md, CURRENT_STATE.md, HANDOFF.md, CONTEXT_INDEX.md, DECISIONS.md, CHANGELOG.md, CHAT_LOG.md. GitHub authoritative for code, branches, tests and deployments.
+
+
+## 2026-11-22 — PR #4 integration into restricted preview
+- Merged the complete API branch 32f65f53faec3f16f05d18b225c5bf25221163ce as second parent into preview branch 3c19cdcbd09303cbbe8d1870e5adc7b0d06de9a4, bringing corrected fresh schema, legacy baseline fixture, proven migrations 0003 and 0004, discovery collision guard, and integrated Python test suite to preview ancestry.
+- Preserved preview-specific bearer authorization, Worker entry point, and Node tests. The actual dev D1 remains untouched; no Worker or DNS deployment.
+- PUBLIC API release remains blocked pending review of current evidence/version identity, approval revocation and data rights. Preview access still requires separate Cloudflare Access and explicitly configured secret.
