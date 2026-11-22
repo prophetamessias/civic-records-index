@@ -137,7 +137,9 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
             if len(body) < 4:
                 return
             key = stable_id("meeting", "windsor", body.lower(), when.isoformat())
-            if key not in seen and len(found) < MAX_MEETINGS:
+            if key not in seen:
+                if len(found) >= MAX_MEETINGS:
+                    raise ValueError("Meeting discovery limit exceeded; use bounded date windows")
                 current = {"meeting_id": key, "body": body, "meeting_date": when.isoformat(), "status": "cancelled" if cancelled else "unknown", "documents": []}
                 found.append(current)
                 seen.add(key)
@@ -155,7 +157,7 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
             process_text()
         elif kind == "link":
             process_text()
-            if current is None or len(current["documents"]) >= MAX_LINKS_PER_MEETING:
+            if current is None:
                 continue
             normalized = " ".join(label.lower().replace("–", "-").split())
             if normalized not in LABELS and not SESSION_AGENDA_RE.match(normalized) and not ITEM_MATERIAL_RE.match(label.strip()):
@@ -165,6 +167,8 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
                 continue
             rid = stable_id("document", url)
             if not any(d.record_id == rid for d in current["documents"]):
+                if len(current["documents"]) >= MAX_LINKS_PER_MEETING:
+                    raise ValueError("Meeting document discovery limit exceeded; manual source review required")
                 current["documents"].append(DocumentLink(label=label, url=url, record_id=rid))
     process_text()
     return [Meeting(meeting_id=m["meeting_id"], body=m["body"], meeting_date=m["meeting_date"], status=m["status"], documents=tuple(m["documents"])) for m in found]

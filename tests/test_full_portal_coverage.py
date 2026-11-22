@@ -40,6 +40,17 @@ class ExpandedCoverageTests(unittest.TestCase):
         transit = result[0]
         self.assertEqual(len(transit.documents), 2)
         self.assertEqual(transit.documents[1].label, "Video")
+    def test_limits_fail_closed_instead_of_truncating(self):
+        dates = [f"<div>City Council Session {n} - Monday, November 23, 2026</div>"
+                 for n in range(121)]
+        with self.assertRaisesRegex(ValueError, "Meeting discovery limit exceeded"):
+            discover("".join(dates), since="2026-01-01")
+        links = "".join(
+            f'<a href="https://www.citywindsor.ca/documents/TEST-ONLY/a{n}.pdf">Agenda</a>'
+            for n in range(41))
+        html = "<div>City Council - Monday, November 23, 2026</div>" + links
+        with self.assertRaisesRegex(ValueError, "Meeting document discovery limit exceeded"):
+            discover(html, since="2026-01-01")
     def test_numbered_in_camera_agenda_sessions_preserved(self):
         html = """<div>City Council - Monday, July 27, 2026</div>
         <a href="https://www.citywindsor.ca/documents/TEST-ONLY/one.pdf">In-Camera Agenda (Session 1)</a>
