@@ -69,6 +69,28 @@ class WindsorDiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Ambiguous repeated meeting heading"):
             discover(html, since="2026-11-01")
 
+    def test_fresh_corrected_schema_supports_discovery(self):
+        """Corrected 0001 plus 0002/0003/0004 must support the discovery importer."""
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "corrected.sqlite"
+            with sqlite3.connect(db_path) as db:
+                for filename in ("0001_core.sql", "0002_meeting_documents.sql",
+                                 "0003_integrity_guards.sql", "0004_meetings_identity.sql"):
+                    sql = (ROOT / "migrations" / filename).read_text()
+                    if filename == "0004_meetings_identity.sql":
+                        db.executescript("BEGIN;\n" + sql + "\nCOMMIT;")
+                    else:
+                        db.executescript(sql)
+                self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+            records = discover(FIXTURE.read_text(), since="2026-11-01")
+            first = apply_to_local_db(str(db_path), records)
+            again = apply_to_local_db(str(db_path), records)
+            self.assertEqual(first, {"meetings_new": 2, "documents_new": 5, "links_new": 5})
+            self.assertEqual(again, {"meetings_new": 0, "documents_new": 0, "links_new": 0})
+            with sqlite3.connect(db_path) as db:
+                self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM meetings").fetchone()[0], 2)
+
     def test_existing_d1_schema_additive_upgrade(self):
         with sqlite3.connect(":memory:") as db:
             db.executescript((ROOT / "tests" / "fixtures" / "legacy_0001_core.sql").read_text())
