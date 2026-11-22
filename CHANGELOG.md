@@ -12,3 +12,9 @@
 - Initialized shared multi-agent engineering continuity on the new independent public repository's dev branch.
 - Documented scope, licence/data boundaries, 90-day review-only cache policy, planned Workers/D1 architecture and integration isolation.
 - No application code, database deployment, scheduled agents, file migrations or deletions performed.
+
+
+## 2026-11-22 — PR #3 reconciliation into API foundation
+- Git merge parent: feature/windsor-source-discovery at 1cd0a4796c6b5b6f5401c78a7391b3cce109239f. Corrected fresh 0001, legacy migration fixtures, 0003/0004, full portal discovery and 28-test integration suite are now present in the PR #4 branch tree. The API remains undeployed, publication remains manually gated, and existing dev D1 remains untouched.
+- Open release blocker: PUBLIC_ITEMS_SQL permits any approved review + any rights-cleared evidence version, not necessarily the latest or contemporaneously reviewed version. Before public release enforce current evidence/version and revocation semantics, and independent code review.
+- Existing dev D1 migration ledger and verified backup/recovery still pending. No merges to dev/main.

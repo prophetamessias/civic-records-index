@@ -33,3 +33,9 @@ User confirmed **all meeting types listed on Windsor's CouncilAgendas portal** a
 
 ## 2026-11-21 — API/domain preparation
 User confirmed records.dcmc.ca and api.records.dcmc.ca as intended hostnames. Feature branch feature/api-readiness-dcmc stacked on feature/windsor-source-discovery. Added pre-deployment Cloudflare Worker public-only entry point, fail-closed read-only D1-backed approved agenda items endpoint, static public landing page, Node tests, CI, and docs/HOSTING_AND_D1.md. No Cloudflare D1 provision, DNS mutation, public deployment or automated job schedule. Review and verify CI before merge. Current live Windsor portal can be inspected by web retrieval but raw HTML was unavailable to local parser tests; do not claim live parser verified.
+
+
+## 2026-11-22 — PR #3 reconciliation into API foundation
+- Git merge parent: feature/windsor-source-discovery at 1cd0a4796c6b5b6f5401c78a7391b3cce109239f. Corrected fresh 0001, legacy migration fixtures, 0003/0004, full portal discovery and 28-test integration suite are now present in the PR #4 branch tree. The API remains undeployed, publication remains manually gated, and existing dev D1 remains untouched.
+- Open release blocker: PUBLIC_ITEMS_SQL permits any approved review + any rights-cleared evidence version, not necessarily the latest or contemporaneously reviewed version. Before public release enforce current evidence/version and revocation semantics, and independent code review.
+- Existing dev D1 migration ledger and verified backup/recovery still pending. No merges to dev/main.
