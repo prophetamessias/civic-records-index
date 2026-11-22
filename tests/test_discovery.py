@@ -61,6 +61,36 @@ class WindsorDiscoveryTests(unittest.TestCase):
             self.assertEqual(main(["--fixture", str(FIXTURE), "--since", "2026-11-01", "--db", str(db_path)]), 0)
             self.assertFalse(db_path.exists())
 
+    def test_duplicate_same_day_heading_fails_closed(self):
+        html = ("<div>City Council - Monday, November 23, 2026</div>"
+                "<a href='https://citywindsor.ca/a.pdf'>Agenda</a>"
+                "<div>City Council - Monday, November 23, 2026</div>"
+                "<a href='https://citywindsor.ca/b.pdf'>Agenda</a>")
+        with self.assertRaisesRegex(ValueError, "Ambiguous repeated meeting heading"):
+            discover(html, since="2026-11-01")
+
+    def test_existing_d1_schema_additive_upgrade(self):
+        with sqlite3.connect(":memory:") as db:
+            db.executescript((ROOT / "migrations" / "0001_core.sql").read_text())
+            db.executescript((ROOT / "migrations" / "0002_meeting_documents.sql").read_text())
+            upgrade = (ROOT / "migrations" / "0003_integrity_guards.sql").read_text()
+            db.executescript(upgrade)
+            # A repeated migration does not recreate triggers or indexes.
+            db.executescript(upgrade)
+            db.execute("INSERT INTO municipalities(id,name,province,official_homepage) VALUES('w','Windsor','ON','https://citywindsor.ca')")
+            db.execute("INSERT INTO meetings(id,municipality_id,body,meeting_date) VALUES('m','w','Council','2026-11-23')")
+            db.execute("INSERT INTO documents(id,municipality_id,document_type,title) VALUES('d','w','agenda','Agenda')")
+            db.execute("INSERT INTO document_versions(id,document_id,source_url,source_host) VALUES('v','d','https://citywindsor.ca/a','citywindsor.ca')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO document_versions(id,document_id,source_url,source_host) VALUES('v2','d','https://citywindsor.ca/a','citywindsor.ca')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO cache_records(id,version_id,meeting_id,storage_provider,storage_locator,cached_at,review_eligible_on) VALUES('c','v','m','local','test','2026-11-23','2026-11-24')")
+            db.execute("INSERT INTO cache_records(id,version_id,meeting_id,storage_provider,storage_locator,cached_at,review_eligible_on) VALUES('c','v','m','local','test','2026-11-23','2027-02-21')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO deletion_reviews(id,cache_id,status,reviewer,reviewed_at) VALUES('x','c','approved','reviewer','2027-02-21')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("UPDATE cache_records SET status='deleted' WHERE id='c'")
+
     def test_broken_meeting_date_not_accepted(self):
         html = "<div>City Council - Monday, November 99, 2026</div><a href='https://citywindsor.ca/test.pdf'>Agenda</a>"
         self.assertEqual(discover(html, since="2026-11-01"), [])
