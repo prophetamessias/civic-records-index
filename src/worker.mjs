@@ -43,49 +43,32 @@ FROM agenda_items AS ai
 JOIN meetings AS m ON m.id = ai.meeting_id
 WHERE ai.disposition_verified = 1
   AND EXISTS (
-    SELECT 1 FROM publication_reviews AS pr
-    WHERE pr.item_id = ai.id AND pr.status = 'approved'
-      AND pr.reviewer IS NOT NULL AND pr.reviewed_at IS NOT NULL
-  )
-  AND EXISTS (
-    SELECT 1 FROM agenda_item_documents AS aid
-    JOIN document_versions AS dv ON dv.id = aid.version_id
+    SELECT 1 FROM publication_authorizations AS pa
+    JOIN agenda_item_documents AS aid ON aid.item_id = ai.id
+      AND aid.version_id = pa.source_version_id
+    JOIN document_versions AS dv ON dv.id = pa.source_version_id
     JOIN documents AS d ON d.id = dv.document_id
-    WHERE aid.item_id = ai.id
+    WHERE pa.item_id = ai.id AND pa.status = 'approved'
+      AND pa.reviewer IS NOT NULL AND pa.reviewed_at IS NOT NULL
       AND d.current_version_id = dv.id
       AND dv.verification_status = 'verified'
       AND dv.rights_review = 'approved'
+      AND dv.sha256 = pa.source_sha256
+      AND pa.approved_item_number = ai.item_number
+      AND pa.approved_title = ai.title
+      AND pa.approved_disposition = ai.disposition
+      AND pa.approved_meeting_body = m.body
+      AND pa.approved_meeting_date = m.meeting_date
   )
 ORDER BY m.meeting_date DESC, m.body, ai.item_number
 LIMIT ?1`;
 function isExpectedHost(hostname) {
   return hostname === HOSTS.api || hostname === HOSTS.records;
 }
-// Preview has no public route and must be enabled explicitly with a secret.
-// Reject missing/misconfigured secrets; no fallback to production behaviour.
-async function previewAuthorized(request, env, hostname) {
-  if (env?.PREVIEW_ENABLED !== "true" || !env.PREVIEW_HOST ||
-      !env.PREVIEW_TOKEN || hostname !== env.PREVIEW_HOST) return false;
-  const authorization = request.headers.get("authorization") || "";
-  if (!authorization.startsWith("Bearer ")) return false;
-  const supplied = authorization.slice("Bearer ".length);
-  if (supplied.length < 24 || supplied.length > 512 || env.PREVIEW_TOKEN.length < 24) return false;
-  const encoder = new TextEncoder();
-  const [left, right] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(supplied)),
-    crypto.subtle.digest("SHA-256", encoder.encode(env.PREVIEW_TOKEN)),
-  ]);
-  const a = new Uint8Array(left), b = new Uint8Array(right);
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a[i] ^ b[i];
-  return mismatch === 0;
-}
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const knownHost = isExpectedHost(url.hostname);
-    const isPreview = !knownHost && await previewAuthorized(request, env, url.hostname);
-    if (!knownHost && !isPreview) return json({ error: "not_found" }, 404);
+    if (!isExpectedHost(url.hostname)) return json({ error: "not_found" }, 404);
     if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method_not_allowed" }, 405);
     if (url.hostname === HOSTS.records) {
       if (url.pathname !== "/") return json({ error: "not_found" }, 404);

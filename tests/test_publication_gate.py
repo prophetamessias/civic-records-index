@@ -1,7 +1,4 @@
-"""Executable publication-gate regression against actual Worker SQL.
-
-Synthetic database only; no network, API key, paid inference, or live content.
-"""
+"""Version-bound publication tests against exact Worker SQL (synthetic only)."""
 import re
 import sqlite3
 import unittest
@@ -9,29 +6,34 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKER = (ROOT / "src" / "worker.mjs").read_text(encoding="utf-8")
-QUERY_MATCH = re.search(r"const PUBLIC_ITEMS_SQL = `(.*?)`;", WORKER, re.DOTALL)
-if not QUERY_MATCH:
+MATCH = re.search(r"const PUBLIC_ITEMS_SQL = `(.*?)`;", WORKER, re.DOTALL)
+if not MATCH:
     raise RuntimeError("Worker public query not found")
-QUERY = QUERY_MATCH.group(1).replace("?1", "?")
+QUERY = MATCH.group(1).replace("?1", "?")
+H1 = "a" * 64
+H2 = "b" * 64
 
 
 class PublicGateTests(unittest.TestCase):
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
-        self.db.executescript((ROOT / "migrations" / "0001_core.sql").read_text())
-        self.db.executescript("""
-          INSERT INTO municipalities(id,name,province,official_homepage) VALUES ('w','Windsor','ON','https://www.citywindsor.ca');
-          INSERT INTO meetings(id,municipality_id,body,meeting_date) VALUES ('m1','w','Council','2026-11-23');
-          INSERT INTO agenda_items(id,meeting_id,item_number,title,disposition,disposition_verified)
-          VALUES ('a1','m1','1','Synthetic example','adopted',1);
-          INSERT INTO documents(id,municipality_id,document_type,title) VALUES ('d1','w','agenda','Synthetic document');
-          INSERT INTO document_versions(id,document_id,source_url,source_host,sha256,retrieved_at,rights_review,verification_status)
-          VALUES ('v1','d1','https://www.citywindsor.ca/synthetic1','www.citywindsor.ca',
-                  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-                  '2026-11-22T00:00:00Z','approved','verified');
-          INSERT INTO agenda_item_documents(item_id,version_id,relation_type) VALUES ('a1','v1','agenda');
-          INSERT INTO publication_reviews(id,item_id,status,reviewer,reviewed_at)
-          VALUES ('p1','a1','approved','synthetic-reviewer','2026-11-22T12:00:00Z');
+        for name in ("0001_core.sql", "0005_publication_authorizations.sql"):
+            self.db.executescript((ROOT / "migrations" / name).read_text())
+        self.db.executescript(f"""
+            INSERT INTO municipalities(id,name,province,official_homepage)
+            VALUES ('w','Windsor','ON','https://citywindsor.ca');
+            INSERT INTO meetings(id,municipality_id,body,meeting_date)
+            VALUES ('m1','w','Council','2026-11-23');
+            INSERT INTO agenda_items(id,meeting_id,item_number,title,disposition,disposition_verified)
+            VALUES ('a1','m1','1','Synthetic example','adopted',1);
+            INSERT INTO documents(id,municipality_id,document_type,title)
+            VALUES ('d1','w','agenda','Synthetic document');
+            INSERT INTO document_versions(id,document_id,source_url,source_host,sha256,rights_review,verification_status)
+            VALUES ('v1','d1','https://citywindsor.ca/synthetic','citywindsor.ca','{H1}','approved','verified');
+            INSERT INTO agenda_item_documents(item_id,version_id,relation_type)
+            VALUES ('a1','v1','agenda');
+            INSERT INTO publication_reviews(id,item_id,status,reviewer,reviewed_at)
+            VALUES ('legacy','a1','approved','old-reviewer','2026-11-22');
         """)
 
     def tearDown(self):
@@ -40,32 +42,72 @@ class PublicGateTests(unittest.TestCase):
     def published(self):
         return self.db.execute(QUERY, (50,)).fetchall()
 
-    def test_unset_current_version_blocks_publication(self):
+    def approve(self, version="v1", sha=H1, authorization="auth1"):
+        self.db.execute("""
+            INSERT INTO publication_authorizations
+            (id,item_id,source_version_id,source_sha256,approved_item_number,
+             approved_title,approved_disposition,approved_meeting_body,
+             approved_meeting_date,status,reviewer,reviewed_at)
+            VALUES (?,?,?,?,?,?,?,?,?,'approved','synthetic-reviewer','2026-11-23T10:00:00Z')
+        """, (authorization, "a1", version, sha, "1", "Synthetic example",
+              "adopted", "Council", "2026-11-23"))
+
+    def test_legacy_review_not_sufficient_and_no_current_denied(self):
         self.assertEqual(self.published(), [])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.approve()
         self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.assertEqual(self.published(), [])
+        self.approve()
         self.assertEqual(len(self.published()), 1)
 
-    def test_superseded_version_is_not_sufficient(self):
+    def test_changed_evidence_requires_fresh_authorization(self):
         self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
-        self.db.execute("""
-          INSERT INTO document_versions(id,document_id,source_url,source_host,sha256,retrieved_at)
-          VALUES ('v2','d1','https://www.citywindsor.ca/synthetic2','www.citywindsor.ca',
-          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','2026-11-23T00:00:00Z')
-        """)
+        self.approve()
+        self.db.execute("INSERT INTO document_versions(id,document_id,source_url,source_host,sha256,rights_review,verification_status) VALUES('v2','d1','https://citywindsor.ca/synthetic2','citywindsor.ca',?,'approved','verified')", (H2,))
+        self.db.execute("INSERT INTO agenda_item_documents(item_id,version_id,relation_type) VALUES('a1','v2','agenda')")
         self.db.execute("UPDATE documents SET current_version_id='v2' WHERE id='d1'")
         self.assertEqual(self.published(), [])
-        self.db.execute("INSERT INTO agenda_item_documents(item_id,version_id,relation_type) VALUES ('a1','v2','agenda')")
-        self.db.execute("UPDATE document_versions SET verification_status='verified', rights_review='approved' WHERE id='v2'")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.approve(version="v2",sha=H2,authorization="auth2")
+        self.db.execute("UPDATE publication_authorizations SET status='revoked',revoked_by='reviewer',revoked_at='2026-11-24T00:00:00Z' WHERE id='auth1'")
+        self.approve(version="v2", sha=H2, authorization="auth2")
         self.assertEqual(len(self.published()), 1)
         self.db.execute("UPDATE document_versions SET rights_review='restricted' WHERE id='v2'")
         self.assertEqual(self.published(), [])
 
-    def test_publication_needs_review_and_verified_disposition(self):
+    def test_item_or_meeting_edit_invalidates_snapshot(self):
         self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.approve()
+        self.db.execute("UPDATE agenda_items SET title='Corrected item' WHERE id='a1'")
+        self.assertEqual(self.published(), [])
+        self.db.execute("UPDATE agenda_items SET title='Synthetic example' WHERE id='a1'")
+        self.db.execute("UPDATE meetings SET body='Corrected council' WHERE id='m1'")
+        self.assertEqual(self.published(), [])
+
+    def test_revocation_is_irreversible_and_cannot_retarget(self):
+        self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.approve()
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("UPDATE publication_authorizations SET source_sha256=? WHERE id='auth1'", (H2,))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("UPDATE publication_authorizations SET status='revoked' WHERE id='auth1'")
+        self.db.execute("UPDATE publication_authorizations SET status='revoked', revoked_by='reviewer',revoked_at='2026-11-24' WHERE id='auth1'")
+        self.assertEqual(self.published(), [])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("UPDATE publication_authorizations SET status='approved', revoked_by=NULL, revoked_at=NULL WHERE id='auth1'")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("DELETE FROM publication_authorizations WHERE id='auth1'")
+        self.approve(authorization="auth2")
+        self.assertEqual(len(self.published()), 1)
+
+    def test_unverified_disposition_or_reviewed_rights_fail_closed(self):
+        self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.approve()
         self.db.execute("UPDATE agenda_items SET disposition_verified=0 WHERE id='a1'")
         self.assertEqual(self.published(), [])
         self.db.execute("UPDATE agenda_items SET disposition_verified=1 WHERE id='a1'")
-        self.db.execute("UPDATE publication_reviews SET status='rejected' WHERE id='p1'")
+        self.db.execute("UPDATE document_versions SET verification_status='changed' WHERE id='v1'")
         self.assertEqual(self.published(), [])
 
 
