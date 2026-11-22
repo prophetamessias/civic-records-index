@@ -13,3 +13,7 @@ The records distinguish agenda proposals, committee recommendations, adopted res
 **Important safeguards not yet implemented:** permission-checked publication APIs, cache deletion service, polymorphic relationship existence validation, full cache/hold eligibility evaluation, link version validation and external data ingestion. Database constraints alone do not authorize publication or deletion. All operational workflows remain disabled.
 
 All test records are synthetic, even where a municipality and meeting date are used as identifiers. For initial integration, design API-level access policies before enabling public endpoints.
+
+
+## Integrity review (2026-11-22)
+Baseline `0001_core.sql` now accepts distinct same-day meeting IDs, guards un-hashed duplicate source observations, checks document ownership and record references, and blocks deletion approval/execution. Tests use synthetic records only. **This is a corrected fresh-install baseline, not an upgrade to the already-created Cloudflare D1.** The existing development database has `0001` and `0002` installed by direct API; before any live migration, reconcile Wrangler's migration ledger, back up/inspect D1, and write/test a separate forward-only migration. Do not rerun or overwrite `0001` on that database. Manual review and publication gates remain mandatory.

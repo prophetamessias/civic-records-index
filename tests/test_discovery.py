@@ -40,7 +40,7 @@ class WindsorDiscoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.sqlite"
             with sqlite3.connect(path) as db:
-                db.executescript((ROOT / "migrations" / "0001_core.sql").read_text())
+                db.executescript((ROOT / "tests" / "fixtures" / "legacy_0001_core.sql").read_text())
                 db.executescript((ROOT / "migrations" / "0002_meeting_documents.sql").read_text())
             records = discover(FIXTURE.read_text(), since="2026-11-01")
             self.assertEqual(len(records), 2)
@@ -71,7 +71,7 @@ class WindsorDiscoveryTests(unittest.TestCase):
 
     def test_existing_d1_schema_additive_upgrade(self):
         with sqlite3.connect(":memory:") as db:
-            db.executescript((ROOT / "migrations" / "0001_core.sql").read_text())
+            db.executescript((ROOT / "tests" / "fixtures" / "legacy_0001_core.sql").read_text())
             db.executescript((ROOT / "migrations" / "0002_meeting_documents.sql").read_text())
             upgrade = (ROOT / "migrations" / "0003_integrity_guards.sql").read_text()
             db.executescript(upgrade)
@@ -94,7 +94,7 @@ class WindsorDiscoveryTests(unittest.TestCase):
     def test_meeting_identity_rebuild_preserves_references(self):
         """Legacy 0001+0002 -> additive 0003 -> transactional 0004 with live-like rows."""
         with sqlite3.connect(":memory:") as db:
-            db.executescript((ROOT / "migrations" / "0001_core.sql").read_text())
+            db.executescript((ROOT / "tests" / "fixtures" / "legacy_0001_core.sql").read_text())
             db.executescript((ROOT / "migrations" / "0002_meeting_documents.sql").read_text())
             db.executescript((ROOT / "migrations" / "0003_integrity_guards.sql").read_text())
             db.execute("INSERT INTO municipalities(id,name,province,official_homepage) VALUES ('w','Windsor','ON','https://citywindsor.ca')")

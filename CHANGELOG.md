@@ -28,3 +28,12 @@
 - Added `docs/D1_MIGRATION_RUNBOOK.md` with preflight, backup/recovery, migration ledger reconciliation, reference-count comparison and release gates.
 - Existing dev D1 is UNCHANGED. No migration bookkeeping table was seen at last read-only check, and no D1 worker/DNS was configured.
 - Important: successful SQLite CI does not establish Cloudflare D1 migration transaction compatibility. Validate in copy-based D1 environment and obtain independent review before remote application. PR #2 schema corrections remain on a different branch and are not yet reconciled into the PR #3 ancestry; keep PRs in draft. Live portal session identity still pending source verification.
+
+
+## 2026-11-22 — Schema branch reconciled into discovery
+- Merged schema PR #2 tip d5875daa0734 into PR #3 tip 1223920b35e1 without merging either pull request.
+- Preserved legacy original 0001 as an immutable synthetic regression fixture for upgrade-path tests, while corrected 0001 is used for fresh-install tests. Both need test verification.
+- Adopted the schema remediation notes from PR #2:
+- Updated fresh-install 0001 schema on feature/source-index-schema for meeting ID flexibility, unhashed source uniqueness, owned document pointers, cross-record validity, +90-day cache review floor, and fail-closed deletion transitions.
+- Added eight regression tests alongside original seven; GitHub Actions schema CI run 45066799032 passed.
+- Clarified that existing Cloudflare dev D1 (old 0001+0002) requires separate reviewed forward-only upgrade and migration-ledger reconciliation. No D1/Worker/DNS/publishing/deletion actions; PR still draft.
