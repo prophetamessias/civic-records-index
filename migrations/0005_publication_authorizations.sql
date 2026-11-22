@@ -54,3 +54,7 @@ WHEN NOT (
   AND NEW.approved_meeting_date=OLD.approved_meeting_date
   AND NEW.reviewer=OLD.reviewer AND NEW.reviewed_at=OLD.reviewed_at
 ) BEGIN SELECT RAISE(ABORT,'publication_authorization_immutable'); END;
+
+-- Retain approval/revocation history; cleanup must never erase the audit trail.
+CREATE TRIGGER guard_publication_auth_delete BEFORE DELETE ON publication_authorizations
+BEGIN SELECT RAISE(ABORT,'publication_authorization_history_immutable'); END;
