@@ -43,18 +43,22 @@ FROM agenda_items AS ai
 JOIN meetings AS m ON m.id = ai.meeting_id
 WHERE ai.disposition_verified = 1
   AND EXISTS (
-    SELECT 1 FROM publication_reviews AS pr
-    WHERE pr.item_id = ai.id AND pr.status = 'approved'
-      AND pr.reviewer IS NOT NULL AND pr.reviewed_at IS NOT NULL
-  )
-  AND EXISTS (
-    SELECT 1 FROM agenda_item_documents AS aid
-    JOIN document_versions AS dv ON dv.id = aid.version_id
+    SELECT 1 FROM publication_authorizations AS pa
+    JOIN agenda_item_documents AS aid ON aid.item_id = ai.id
+      AND aid.version_id = pa.source_version_id
+    JOIN document_versions AS dv ON dv.id = pa.source_version_id
     JOIN documents AS d ON d.id = dv.document_id
-    WHERE aid.item_id = ai.id
+    WHERE pa.item_id = ai.id AND pa.status = 'approved'
+      AND pa.reviewer IS NOT NULL AND pa.reviewed_at IS NOT NULL
       AND d.current_version_id = dv.id
       AND dv.verification_status = 'verified'
       AND dv.rights_review = 'approved'
+      AND dv.sha256 = pa.source_sha256
+      AND pa.approved_item_number = ai.item_number
+      AND pa.approved_title = ai.title
+      AND pa.approved_disposition = ai.disposition
+      AND pa.approved_meeting_body = m.body
+      AND pa.approved_meeting_date = m.meeting_date
   )
 ORDER BY m.meeting_date DESC, m.body, ai.item_number
 LIMIT ?1`;
