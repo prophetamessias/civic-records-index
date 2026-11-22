@@ -17,6 +17,13 @@ DROP TRIGGER IF EXISTS guard_item_document_update;
 DROP TRIGGER IF EXISTS guard_cache_eligible_insert;
 DROP TRIGGER IF EXISTS guard_cache_eligible_update;
 
+-- Materialize a migration snapshot before replacing the FK parent.
+-- Restore rows AFTER the new table regains the original name so deferred
+-- FK violations resolve before commit (confirmed with SQLite regression).
+CREATE TABLE meetings_migration_snapshot AS
+SELECT id, municipality_id, body, meeting_date, status, official_url, created_at
+FROM meetings;
+
 CREATE TABLE meetings_rebuilt (
   id TEXT PRIMARY KEY,
   municipality_id TEXT NOT NULL REFERENCES municipalities(id),
@@ -28,13 +35,14 @@ CREATE TABLE meetings_rebuilt (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO meetings_rebuilt
-  (id, municipality_id, body, meeting_date, status, official_url, created_at)
-SELECT id, municipality_id, body, meeting_date, status, official_url, created_at
-FROM meetings;
-
 DROP TABLE meetings;
 ALTER TABLE meetings_rebuilt RENAME TO meetings;
+
+INSERT INTO meetings
+  (id, municipality_id, body, meeting_date, status, official_url, created_at)
+SELECT id, municipality_id, body, meeting_date, status, official_url, created_at
+FROM meetings_migration_snapshot;
+DROP TABLE meetings_migration_snapshot;
 
 -- Indexes belonging to the dropped table need to be recreated.
 CREATE INDEX idx_meetings_date ON meetings(meeting_date);
