@@ -26,7 +26,9 @@ test("only uses approved/verified/reuse-cleared records query",async()=>{
  assert.equal(r.status,200);
  assert.deepEqual((await r.json()).records,[]);
  assert.match(sql,/disposition_verified\s*=\s*1/);
- assert.match(sql,/pr\.status\s*=\s*'approved'/);
+ assert.match(sql,/pa\.status\s*=\s*'approved'/);
+ assert.match(sql,/pa\.source_sha256/);
+ assert.match(sql,/pa\.approved_title/);
  assert.match(sql,/dv\.verification_status\s*=\s*'verified'/);
  assert.match(sql,/dv\.rights_review\s*=\s*'approved'/);
  assert.equal(bound,50);
