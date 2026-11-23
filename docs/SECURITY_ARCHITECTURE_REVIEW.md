@@ -55,3 +55,25 @@ This report is a repository/CI and primary-source inspection performed by ChatGP
 
 ## Integration decision
 **REQUEST CHANGES / HOLD dev merge** until independent review is recorded, publication scope is explicitly approved for development-only integration, and any HIGH findings relevant to dev integration are closed or explicitly accepted by the project owner. Deployment, public publishing, paid inference and document deletion remain prohibited.
+
+
+## Independent Gemini findings / remediation ledger (2026-11-22)
+Gemini's independent review was REQUEST CHANGES (see GitHub issue #6). A code change is **not** equivalent to independent re-approval.
+
+| Finding | Implementation response | Remaining gate |
+| --- | --- | --- |
+| 1 cancelled meetings published | Public SQL requires scheduled/completed meeting and authorization snapshots `approved_meeting_status`. Meeting state changes permanently revoke approval. | Gemini re-review, verify upstream corrections |
+| 2 restricted companions | Public SQL excludes items with any linked document whose current version is unverified, not rights-approved, lacks hash, or is not itself linked. | Define a complete multi-document evidence manifest and reapproval on changes |
+| 3 dash variants dropped | Parser recognizes hyphen/en/em dash and regression tests. | Validate real portal HTML |
+| 4 split semantic elements dropped | Bounded parser heading candidate can span h2/p or table cells; regression tests. | Ensure unrelated text cannot accidentally join into a false heading; live portal validation |
+| 5 migration history divergence | **UNRESOLVED.** Existing dev D1 has direct-applied original 0001+0002, no ledger, while fresh 0001 is revised. | Verified backup/export, migration tooling reconciliation, reversible test-run and separate authorization |
+| 6 document ownership drift | 0006 blocks reassignment of a document version used as current by a document. | Independent SQL review |
+| 7 hard cache delete | 0006 blocks raw DELETE on cache_records. | Independent SQL review |
+| 8 approval resurrection | 0005 revokes approval on item and meeting data changes; revoked status not reversible. | Document/link set changes still require manifest policy |
+| 9 CI misses parser | Schema workflow watches `src/civic_index/**` and stacked branches. | CI review and branch policy |
+
+### Migration path decision needed before touching actual dev D1
+1. Freeze existing live schema evidence and all table row counts, and record the raw `sqlite_master` definitions and schema hash; independently verify existing original 0001+0002 match expected legacy fixture. Do not rely on a 0-meetings count alone.
+2. Decide **one** canonical migration manager and immutable history policy. The revised fresh 0001 and legacy original 0001 are distinct schema histories; the current `0003`/`0004` bridge does not itself establish an automated migration ledger.
+3. Test a reviewed baseline/reconciliation procedure on a disposable clone or exported copy, including migration `0006`, then prove that a second migration check is a no-op, and validate FK counts/indexes/triggers and restoration from backup.
+4. Obtain explicit owner approval before the first write to `civic-records-index-dev`, and log what was executed. Never forge a migration ledger or blindly run `0001`/`0002` again.
