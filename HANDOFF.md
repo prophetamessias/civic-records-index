@@ -69,3 +69,12 @@ Canonical ChatGPT Library /Projects/civic-records-index/ stores PROJECT.md, CURR
 - No changes to the existing `civic-records-index-dev` D1, other Cloudflare resources, public output, DNS, data imports, automated publishing, paid inference or cached record deletions.
 
 **Next:** obtain actual independent review, resolve or explicitly accept findings for integration into dev, verify PR ancestry/CI on current heads, then seek explicit human approval to merge sequentially. Do NOT deploy, migrate dev D1, or enable ingestion before separate reviews.
+
+
+## 2026-11-22 — Gemini review handoff and D1 0005 test
+- Independent Gemini review request created as GitHub issue https://github.com/prophetamessias/civic-records-index/issues/6. Gemini is NOT connected to this ChatGPT session: issue is a review package, **not a completed Gemini review**. Pending user action in Antigravity/Gemini; no reviewer verdict yet.
+- Tested a disposable Cloudflare D1 `civic-records-0005-review-test-20261122` against the **legacy upgrade sequence**: original 0001 fixture → 0002 → 0003 → 0004 → 0005; every schema SQL step succeeded.
+- In that isolated D1, inserted synthetic meeting/item/document/version and old `publication_reviews` approval. Exact current Worker public SQL returned zero rows; a new, matching version-bound `publication_authorizations` approval produced one public row; revoking the authorization made public SQL return zero rows again. The revoked record remained for audit and `PRAGMA foreign_key_check` reported no violations.
+- Verified the disposable D1 name/UUID then deleted **only** that test instance (UUID `55377533-cd89-4b8f-a75d-c6e09dc49af8`), Cloudflare deletion API success. The existing dev database was not modified.
+- PRs #1–#5 remain draft/unmerged; no Worker/DNS deployments, real ingestion, paid AI, autonomous publishing or document deletion.
+- Next: have Gemini independently inspect issue #6 read-only and return actionable findings. Evaluate findings and remediate on feature branches, rerun CI, then separately authorize any dev merge. Development D1 migration ledger/backup/recovery still unresolved.
