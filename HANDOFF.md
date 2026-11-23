@@ -78,3 +78,14 @@ Canonical ChatGPT Library /Projects/civic-records-index/ stores PROJECT.md, CURR
 - Verified the disposable D1 name/UUID then deleted **only** that test instance (UUID `55377533-cd89-4b8f-a75d-c6e09dc49af8`), Cloudflare deletion API success. The existing dev database was not modified.
 - PRs #1–#5 remain draft/unmerged; no Worker/DNS deployments, real ingestion, paid AI, autonomous publishing or document deletion.
 - Next: have Gemini independently inspect issue #6 read-only and return actionable findings. Evaluate findings and remediate on feature branches, rerun CI, then separately authorize any dev merge. Development D1 migration ledger/backup/recovery still unresolved.
+
+
+## 2026-11-22 — Independent Gemini audit remediation (REQUEST CHANGES)
+- User supplied Gemini Antigravity review (verdict REQUEST CHANGES); major findings summarized on [issue #6](https://github.com/prophetamessias/civic-records-index/issues/6). Gemini's independent finding status is NOT an approval for current code.
+- PR #3 now handles hyphen/en-dash/em-dash and split semantic heading elements, with regression tests; CI schema coverage includes `src/civic_index/**` and stacked feature branches.
+- PR #4 and PR #5 publication query now rejects cancelled/unknown meetings, requires a matching approved meeting-status snapshot, and fails closed if any linked document lacks a current, verified, rights-cleared, hash-identified version linked to that item. Correction triggers revoke previously approved item/meeting snapshots irreversibly.
+- Added additive `migrations/0006_audit_integrity.sql`: hard cache delete prevention, current document-version reassignment guard and meeting-date retention floor; added regression tests. No data deletion workflow enabled.
+- Reconciled PR #3 → #4 → #5 with preview bearer authentication preserved. Latest integrated PR #5 commit before docs `72eb7d52c0538c9376712d3ef68de047db2f7aee`, Python **42 tests passed** (Actions run 45092004309), Node **11 tests passed** (run 45092004305).
+- **Outstanding HIGH:** migration ledger and provenance reconciliation for old direct-API D1, plus verifiable backup/recovery before dev D1 write. See runbook. Actual live Windsor HTML and full historical coverage remain unverified; schedule and publishing disabled.
+- **Outstanding release design:** binding approval to all relevant source documents and controlling post-review additions/removals; reviewer identity authentication; permissioned editorial workflow; possible browser CORS preview preflight; in-place PDF version tracking; independent Gemini re-review of new changes. Current companion check is fail-closed for restricted linked documents, not a complete reviewed-evidence manifest.
+- No merges, deployments, DNS changes, live database migrations, scheduled ingestion or public publication.
