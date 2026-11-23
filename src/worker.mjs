@@ -42,6 +42,7 @@ SELECT ai.id AS id,
 FROM agenda_items AS ai
 JOIN meetings AS m ON m.id = ai.meeting_id
 WHERE ai.disposition_verified = 1
+  AND m.status IN ('scheduled','completed')
   AND EXISTS (
     SELECT 1 FROM publication_authorizations AS pa
     JOIN agenda_item_documents AS aid ON aid.item_id = ai.id
@@ -59,6 +60,25 @@ WHERE ai.disposition_verified = 1
       AND pa.approved_disposition = ai.disposition
       AND pa.approved_meeting_body = m.body
       AND pa.approved_meeting_date = m.meeting_date
+      AND pa.approved_meeting_status = m.status
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM agenda_item_documents aid2
+    JOIN document_versions linked ON linked.id = aid2.version_id
+    JOIN documents d2 ON d2.id = linked.document_id
+    LEFT JOIN document_versions current_dv ON current_dv.id = d2.current_version_id
+    WHERE aid2.item_id = ai.id
+      AND (
+        current_dv.id IS NULL
+        OR current_dv.verification_status != 'verified'
+        OR current_dv.rights_review != 'approved'
+        OR current_dv.sha256 IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM agenda_item_documents matching
+          WHERE matching.item_id = ai.id
+            AND matching.version_id = current_dv.id
+        )
+      )
   )
 ORDER BY m.meeting_date DESC, m.body, ai.item_number
 LIMIT ?1`;
