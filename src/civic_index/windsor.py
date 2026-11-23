@@ -16,7 +16,7 @@ PORTAL_URL = "https://opendata.citywindsor.ca/Tools/CouncilAgendas"
 DAY = r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)"
 MONTH = r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
 MEETING_RE = re.compile(
-    rf"(?P<body>[^\n]{{4,500}}?)\s+-\s+(?P<day>{DAY}),?\s+"
+    rf"(?P<body>[^\n]{{4,500}}?)\s+[-–—]\s+(?P<day>{DAY}),?\s+"
     rf"(?P<date>{MONTH}\s+\d{{1,2}},?\s+20\d{{2}})\b",
     re.IGNORECASE,
 )
@@ -117,11 +117,20 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
     found: list[dict] = []
     seen: set[str] = set()
     text_parts: list[str] = []
-    def process_text():
+    def process_text(*, flush: bool = False):
         nonlocal current
         line = " ".join(text_parts).strip()
-        text_parts.clear()
         match = MEETING_RE.search(line)
+        if match:
+            text_parts.clear()
+        elif not flush:
+            # A heading/date may span sibling semantic elements. Keep a bounded
+            # candidate until we see a complete heading or a document link.
+            if len(line) > 900:
+                text_parts.clear()
+            return
+        else:
+            text_parts.clear()
         if match:
             try:
                 when = datetime.strptime(match.group("date").replace(",", ""), "%B %d %Y").date()
@@ -156,7 +165,7 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
         elif kind == "break":
             process_text()
         elif kind == "link":
-            process_text()
+            process_text(flush=True)
             if current is None:
                 continue
             normalized = " ".join(label.lower().replace("–", "-").split())
@@ -170,7 +179,7 @@ def discover(html: str, *, since: str = "2026-01-01", base_url: str = PORTAL_URL
                 if len(current["documents"]) >= MAX_LINKS_PER_MEETING:
                     raise ValueError("Meeting document discovery limit exceeded; manual source review required")
                 current["documents"].append(DocumentLink(label=label, url=url, record_id=rid))
-    process_text()
+    process_text(flush=True)
     return [Meeting(meeting_id=m["meeting_id"], body=m["body"], meeting_date=m["meeting_date"], status=m["status"], documents=tuple(m["documents"])) for m in found]
 
 

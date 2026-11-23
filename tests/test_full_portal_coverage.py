@@ -51,6 +51,20 @@ class ExpandedCoverageTests(unittest.TestCase):
         html = "<div>City Council - Monday, November 23, 2026</div>" + links
         with self.assertRaisesRegex(ValueError, "Meeting document discovery limit exceeded"):
             discover(html, since="2026-01-01")
+    def test_dash_variants_and_split_headings(self):
+        for separator in ("-", "–", "—"):
+            meetings = discover(
+                f"<div>City Council {separator} Monday, November 23, 2026</div>",
+                since="2026-01-01")
+            self.assertEqual(len(meetings), 1)
+            self.assertEqual(meetings[0].body, "City Council")
+        for html in (
+            "<h2>City Council - </h2><p>Monday, November 23, 2026</p>",
+            "<tr><td>City Council -</td><td>Monday, November 23, 2026</td></tr>",
+        ):
+            meetings = discover(html, since="2026-01-01")
+            self.assertEqual(len(meetings), 1)
+
     def test_numbered_in_camera_agenda_sessions_preserved(self):
         html = """<div>City Council - Monday, July 27, 2026</div>
         <a href="https://www.citywindsor.ca/documents/TEST-ONLY/one.pdf">In-Camera Agenda (Session 1)</a>

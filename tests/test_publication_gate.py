@@ -47,10 +47,10 @@ class PublicGateTests(unittest.TestCase):
             INSERT INTO publication_authorizations
             (id,item_id,source_version_id,source_sha256,approved_item_number,
              approved_title,approved_disposition,approved_meeting_body,
-             approved_meeting_date,status,reviewer,reviewed_at)
-            VALUES (?,?,?,?,?,?,?,?,?,'approved','synthetic-reviewer','2026-11-23T10:00:00Z')
+             approved_meeting_date,approved_meeting_status,status,reviewer,reviewed_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,'approved','synthetic-reviewer','2026-11-23T10:00:00Z')
         """, (authorization, "a1", version, sha, "1", "Synthetic example",
-              "adopted", "Council", "2026-11-23"))
+              "adopted", "Council", "2026-11-23", "scheduled"))
 
     def test_legacy_review_not_sufficient_and_no_current_denied(self):
         self.assertEqual(self.published(), [])
@@ -99,6 +99,35 @@ class PublicGateTests(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.execute("DELETE FROM publication_authorizations WHERE id='auth1'")
         self.approve(authorization="auth2")
+        self.assertEqual(len(self.published()), 1)
+
+    def test_cancelled_meeting_revokes_and_cannot_resurrect(self):
+        self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.approve()
+        self.assertEqual(len(self.published()), 1)
+        self.db.execute("UPDATE meetings SET status='cancelled' WHERE id='m1'")
+        self.assertEqual(self.published(), [])
+        self.assertEqual(self.db.execute("SELECT status FROM publication_authorizations WHERE id='auth1'").fetchone()[0], 'revoked')
+        self.db.execute("UPDATE meetings SET status='scheduled' WHERE id='m1'")
+        self.assertEqual(self.published(), [])
+
+    def test_reverted_title_never_restores_authorization(self):
+        self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.approve()
+        self.db.execute("UPDATE agenda_items SET title='Corrected' WHERE id='a1'")
+        self.db.execute("UPDATE agenda_items SET title='Synthetic example' WHERE id='a1'")
+        self.assertEqual(self.published(), [])
+        self.assertEqual(self.db.execute("SELECT status FROM publication_authorizations WHERE id='auth1'").fetchone()[0], 'revoked')
+
+    def test_unverified_companion_blocks_publication(self):
+        self.db.execute("UPDATE documents SET current_version_id='v1' WHERE id='d1'")
+        self.approve()
+        self.db.execute("INSERT INTO documents(id,municipality_id,document_type,title) VALUES ('d2','w','attachment','Synthetic companion')")
+        self.db.execute("INSERT INTO document_versions(id,document_id,source_url,source_host,sha256,rights_review,verification_status) VALUES ('v2','d2','https://citywindsor.ca/companion','citywindsor.ca',?,'restricted','verified')", (H2,))
+        self.db.execute("UPDATE documents SET current_version_id='v2' WHERE id='d2'")
+        self.db.execute("INSERT INTO agenda_item_documents(item_id,version_id,relation_type) VALUES ('a1','v2','attachment')")
+        self.assertEqual(self.published(), [])
+        self.db.execute("UPDATE document_versions SET rights_review='approved' WHERE id='v2'")
         self.assertEqual(len(self.published()), 1)
 
     def test_unverified_disposition_or_reviewed_rights_fail_closed(self):

@@ -12,6 +12,7 @@ CREATE TABLE publication_authorizations (
   approved_disposition TEXT NOT NULL,
   approved_meeting_body TEXT NOT NULL,
   approved_meeting_date TEXT NOT NULL,
+  approved_meeting_status TEXT NOT NULL CHECK(approved_meeting_status IN ('scheduled','completed')),
   status TEXT NOT NULL CHECK(status IN('approved','revoked')),
   reviewer TEXT NOT NULL CHECK(length(trim(reviewer))>0),
   reviewed_at TEXT NOT NULL CHECK(length(trim(reviewed_at))>0),
@@ -37,6 +38,7 @@ WHEN NEW.status != 'approved' OR NOT EXISTS (
     AND ai.item_number=NEW.approved_item_number AND ai.title=NEW.approved_title
     AND ai.disposition=NEW.approved_disposition
     AND m.body=NEW.approved_meeting_body AND m.meeting_date=NEW.approved_meeting_date
+    AND m.status=NEW.approved_meeting_status
 ) BEGIN SELECT RAISE(ABORT,'publication_snapshot_not_verified'); END;
 -- Authorization cannot be retargeted or revived; only revocation is allowed.
 CREATE TRIGGER guard_publication_auth_update BEFORE UPDATE ON publication_authorizations
@@ -52,9 +54,34 @@ WHEN NOT (
   AND NEW.approved_disposition=OLD.approved_disposition
   AND NEW.approved_meeting_body=OLD.approved_meeting_body
   AND NEW.approved_meeting_date=OLD.approved_meeting_date
+  AND NEW.approved_meeting_status=OLD.approved_meeting_status
   AND NEW.reviewer=OLD.reviewer AND NEW.reviewed_at=OLD.reviewed_at
 ) BEGIN SELECT RAISE(ABORT,'publication_authorization_immutable'); END;
 
 -- Retain approval/revocation history; cleanup must never erase the audit trail.
 CREATE TRIGGER guard_publication_auth_delete BEFORE DELETE ON publication_authorizations
 BEGIN SELECT RAISE(ABORT,'publication_authorization_history_immutable'); END;
+
+-- On any reviewed-item correction, permanently invalidate prior approvals.
+CREATE TRIGGER revoke_publication_item_change AFTER UPDATE OF
+  item_number,title,disposition,disposition_verified,meeting_id ON agenda_items
+WHEN OLD.item_number IS NOT NEW.item_number OR OLD.title IS NOT NEW.title
+  OR OLD.disposition IS NOT NEW.disposition
+  OR OLD.disposition_verified IS NOT NEW.disposition_verified
+  OR OLD.meeting_id IS NOT NEW.meeting_id
+BEGIN
+  UPDATE publication_authorizations
+  SET status='revoked',revoked_by='system_item_mutation',revoked_at=CURRENT_TIMESTAMP
+  WHERE item_id=OLD.id AND status='approved';
+END;
+-- If a meeting changes or is cancelled, its previous approvals never revive.
+CREATE TRIGGER revoke_publication_meeting_change AFTER UPDATE OF
+  body,meeting_date,status,municipality_id ON meetings
+WHEN OLD.body IS NOT NEW.body OR OLD.meeting_date IS NOT NEW.meeting_date
+  OR OLD.status IS NOT NEW.status OR OLD.municipality_id IS NOT NEW.municipality_id
+BEGIN
+  UPDATE publication_authorizations
+  SET status='revoked',revoked_by='system_meeting_mutation',revoked_at=CURRENT_TIMESTAMP
+  WHERE item_id IN (SELECT id FROM agenda_items WHERE meeting_id=OLD.id)
+    AND status='approved';
+END;
