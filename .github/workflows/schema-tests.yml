@@ -3,12 +3,14 @@ on:
   pull_request:
     paths:
       - 'migrations/**'
+      - 'src/civic_index/**'
       - 'tests/**'
       - '.github/workflows/schema-tests.yml'
   push:
-    branches: [dev]
+    branches: [dev, feature/source-index-schema, feature/windsor-source-discovery, feature/api-readiness-dcmc, feature/dev-preview-d1]
     paths:
       - 'migrations/**'
+      - 'src/civic_index/**'
       - 'tests/**'
       - '.github/workflows/schema-tests.yml'
 permissions:
