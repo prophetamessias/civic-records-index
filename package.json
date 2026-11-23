@@ -1,0 +1,9 @@
+{
+  "name": "civic-records-index",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:worker": "node --test tests/*.test.mjs"
+  }
+}
