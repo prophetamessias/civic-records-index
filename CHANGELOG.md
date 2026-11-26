@@ -66,3 +66,10 @@
 - **Outstanding HIGH:** migration ledger and provenance reconciliation for old direct-API D1, plus verifiable backup/recovery before dev D1 write. See runbook. Actual live Windsor HTML and full historical coverage remain unverified; schedule and publishing disabled.
 - **Outstanding release design:** binding approval to all relevant source documents and controlling post-review additions/removals; reviewer identity authentication; permissioned editorial workflow; possible browser CORS preview preflight; in-place PDF version tracking; independent Gemini re-review of new changes. Current companion check is fail-closed for restricted linked documents, not a complete reviewed-evidence manifest.
 - No merges, deployments, DNS changes, live database migrations, scheduled ingestion or public publication.
+
+
+## 2026-11-26 — Priority, delivery scope and schedule checkpoint
+- Agreed near-term delivery sequence: live Windsor meeting/agenda/supporting-document indexing → restricted preview → Council Office councillor workspace → authorized pilot, while VoterHub Next development continues weekly.
+- Deferred fork/full legislative-management suite; retained public/private consumer boundaries and vendor-neutral design.
+- Reallocated recurring Google Calendar work blocks beginning 2026-11-30: Civic Records Index ~8.5 h/week, Council Office ~6.5 h/week, VoterHub ~6.25 h/week. Preserved existing late-afternoon career/income time, fixed commitments and hockey; cleaned first-week duplicates and verified future week.
+- No implementation, deployment, database migrations or code test runs performed in this checkpoint. Existing security, ingestion and D1 recovery blockers remain open.
