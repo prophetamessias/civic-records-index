@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:worker": "node --test tests/*.test.mjs"
+    "test:worker": "node --test tests/test_*.mjs"
   }
 }

@@ -85,10 +85,31 @@ LIMIT ?1`;
 function isExpectedHost(hostname) {
   return hostname === HOSTS.api || hostname === HOSTS.records;
 }
+// Preview has no public route and must be enabled explicitly with a secret.
+// Reject missing/misconfigured secrets; no fallback to production behaviour.
+async function previewAuthorized(request, env, hostname) {
+  if (env?.PREVIEW_ENABLED !== "true" || !env.PREVIEW_HOST ||
+      !env.PREVIEW_TOKEN || hostname !== env.PREVIEW_HOST) return false;
+  const authorization = request.headers.get("authorization") || "";
+  if (!authorization.startsWith("Bearer ")) return false;
+  const supplied = authorization.slice("Bearer ".length);
+  if (supplied.length < 24 || supplied.length > 512 || env.PREVIEW_TOKEN.length < 24) return false;
+  const encoder = new TextEncoder();
+  const [left, right] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(supplied)),
+    crypto.subtle.digest("SHA-256", encoder.encode(env.PREVIEW_TOKEN)),
+  ]);
+  const a = new Uint8Array(left), b = new Uint8Array(right);
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a[i] ^ b[i];
+  return mismatch === 0;
+}
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (!isExpectedHost(url.hostname)) return json({ error: "not_found" }, 404);
+    const knownHost = isExpectedHost(url.hostname);
+    const isPreview = !knownHost && await previewAuthorized(request, env, url.hostname);
+    if (!knownHost && !isPreview) return json({ error: "not_found" }, 404);
     if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method_not_allowed" }, 405);
     if (url.hostname === HOSTS.records) {
       if (url.pathname !== "/") return json({ error: "not_found" }, 404);

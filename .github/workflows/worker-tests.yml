@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'src/worker.mjs'
-      - 'tests/*.test.mjs'
+      - 'tests/test_*.mjs'
       - 'package.json'
       - '.github/workflows/worker-tests.yml'
 permissions:
